@@ -117,7 +117,7 @@ def detect_country_from_partner_text(partner_name: str):
 
 
 # ============================================================
-# Extract totals (volume KB + GB)
+# Extract totals (includes Total SubCount & Total RecCount)
 # ============================================================
 def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [str(c).strip().replace("\n", " ") for c in df.columns]
@@ -126,6 +126,8 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     def norm(s: str) -> str:
         return re.sub(r"\s+", "", str(s).strip().lower())
 
+    total_sub_col = None
+    total_rec_col = None
     total_volume_col = None
     total_gprs_col = None
     total_voice_col = None
@@ -136,12 +138,21 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     for c in df.columns:
         lc = norm(c)
+
         if "partnername" in lc:
             rename_map[c] = "Partner Name"
             continue
         if "networkid" in lc:
             rename_map[c] = "Network ID"
             continue
+
+        if lc == "totalsubcount" or ("total" in lc and "subcount" in lc):
+            total_sub_col = c
+            continue
+        if lc == "totalreccount" or ("total" in lc and "reccount" in lc):
+            total_rec_col = c
+            continue
+
         if lc == "totalvolume(kb)" or ("total" in lc and "volume(kb)" in lc):
             total_volume_col = c
             continue
@@ -154,11 +165,15 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
         if ("totalvoice" in lc and "amount" in lc) or ("totalvoiceamount" in lc):
             total_voice_col = c
             continue
+
         if daily_vol_regex.match(str(c)):
             daily_volume_cols.append(c)
             continue
 
     df = df.rename(columns=rename_map)
+
+    df["Total SubCount"] = pd.to_numeric(df[total_sub_col], errors="coerce").fillna(0) if total_sub_col else 0.0
+    df["Total RecCount"] = pd.to_numeric(df[total_rec_col], errors="coerce").fillna(0) if total_rec_col else 0.0
 
     if total_volume_col is not None:
         df["Total Volume(KB)"] = pd.to_numeric(df[total_volume_col], errors="coerce").fillna(0)
@@ -171,7 +186,7 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     df["Total GPRS Amount(USD)"] = pd.to_numeric(df[total_gprs_col], errors="coerce").fillna(0) if total_gprs_col else 0.0
     df["Total Voice Amount(USD)"] = pd.to_numeric(df[total_voice_col], errors="coerce").fillna(0) if total_voice_col else 0.0
 
-    # KB → GB (1 GB = 1024*1024 KB)
+    # KB → GB
     df["Total Volume(GB)"] = df["Total Volume(KB)"] / (1024 * 1024)
 
     return df
@@ -224,22 +239,6 @@ def load_partner_mapping():
     return pm
 
 
-def save_partner_mappings(pm_df: pd.DataFrame, new_df: pd.DataFrame):
-    if new_df.empty:
-        return pm_df
-    new_df = new_df.copy()
-    new_df["Partner Name"] = new_df["Partner Name"].astype(str).str.strip()
-    new_df["Country"] = new_df["Country"].astype(str).str.strip()
-    new_df = new_df[(new_df["Partner Name"] != "") & (new_df["Country"] != "")]
-    if new_df.empty:
-        return pm_df
-    combined = pd.concat([pm_df[["Partner Name", "Country"]], new_df[["Partner Name", "Country"]]], ignore_index=True)
-    combined = combined.drop_duplicates(subset=["Partner Name"], keep="last").sort_values("Partner Name")
-    os.makedirs(os.path.dirname(PARTNER_MAPPING_PATH), exist_ok=True)
-    combined.to_csv(PARTNER_MAPPING_PATH, index=False)
-    return combined
-
-
 # ============================================================
 # Workbook parsing
 # ============================================================
@@ -258,6 +257,7 @@ def parse_workbook(file_bytes: bytes, filename: str):
 
         needed = [
             "Partner Name", "Network ID",
+            "Total SubCount", "Total RecCount",
             "Total Duration(min)",
             "Total Volume(KB)", "Total Volume(GB)",
             "Total GPRS Amount(USD)", "Total Voice Amount(USD)"
@@ -275,12 +275,12 @@ def parse_workbook(file_bytes: bytes, filename: str):
             (~network.str.lower().isin(["total", "grand total"]))
         ].copy()
 
-        numeric_cols = [
+        for col in [
+            "Total SubCount", "Total RecCount",
             "Total Duration(min)",
             "Total Volume(KB)", "Total Volume(GB)",
             "Total GPRS Amount(USD)", "Total Voice Amount(USD)"
-        ]
-        for col in numeric_cols:
+        ]:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
         df["Year"] = year
@@ -290,6 +290,7 @@ def parse_workbook(file_bytes: bytes, filename: str):
     if not rows:
         return pd.DataFrame(columns=[
             "Partner Name", "Network ID",
+            "Total SubCount", "Total RecCount",
             "Total Duration(min)",
             "Total Volume(KB)", "Total Volume(GB)",
             "Total GPRS Amount(USD)", "Total Voice Amount(USD)",
@@ -365,22 +366,16 @@ df["Country_inferred"] = df.apply(infer_chain, axis=1)
 df["Country_inferred"] = df["Country_inferred"].where(df["Country_inferred"].notna(), "")
 df["Country_inferred"] = df["Country_inferred"].astype("string").str.strip().fillna("")
 df.loc[df["Country_inferred"].str.lower().isin(["none", "nan"]), "Country_inferred"] = ""
-
-# Auto-save inferred mappings (network)
-new_pairs = df[["Network ID", "Country_inferred"]].rename(columns={"Country_inferred": "Country"}).drop_duplicates()
-mapped_set = set(mapping["Network ID"].astype(str).str.strip().tolist())
-new_pairs = new_pairs[~new_pairs["Network ID"].astype(str).str.strip().isin(mapped_set)]
-new_pairs = new_pairs[new_pairs["Country"].astype(str).str.strip() != ""]
-if not new_pairs.empty:
-    mapping = save_new_mappings_to_csv(mapping, new_pairs)
-
 df["Country"] = df["Country_inferred"]
 
 # ============================================================
-# Aggregate (metric uses GB only)
+# Aggregate (keep Sub/Rec only for debug; not used in metric)
 # ============================================================
 df_ok = df[df["Country"] != ""].copy()
+
 country_usage = df_ok.groupby(["Year", "Country"], as_index=False).agg({
+    "Total SubCount": "sum",
+    "Total RecCount": "sum",
     "Total Duration(min)": "sum",
     "Total Volume(KB)": "sum",
     "Total Volume(GB)": "sum",
@@ -390,7 +385,7 @@ country_usage = df_ok.groupby(["Year", "Country"], as_index=False).agg({
 country_usage["ISO3"] = country_usage["Country"].apply(country_to_iso3)
 
 # ============================================================
-# Controls
+# Controls (NO Sub/Rec here)
 # ============================================================
 years = sorted([y for y in country_usage["Year"].dropna().unique() if pd.notna(y)])
 if not years:
@@ -416,7 +411,7 @@ with colC:
 year_df = country_usage[country_usage["Year"] == year_selected].copy().sort_values(metric, ascending=False)
 
 # ============================================================
-# Visuals with Top Operator per Country
+# Top operator per country (based on selected metric)
 # ============================================================
 top_operator_df = (
     df_ok[df_ok["Year"] == year_selected]
@@ -429,9 +424,11 @@ top_operator_per_country = (
     .to_dict()
 )
 
+# ============================================================
+# Visuals
+# ============================================================
 left, right = st.columns([1, 1])
 
-# Bar
 with left:
     st.subheader(f"🏆 Top {top_n} Countries ({metric}) - {year_selected}")
     top_df = year_df.head(top_n).copy()
@@ -448,7 +445,6 @@ with left:
     fig_bar.update_layout(xaxis_tickangle=-45, template="plotly_white")
     st.plotly_chart(fig_bar, use_container_width=True)
 
-# Map (GB only)
 with right:
     st.subheader(f"🗺️ World Map ({metric}) - {year_selected}")
     map_df = year_df[year_df["ISO3"].notna()].copy()
@@ -473,15 +469,23 @@ with right:
     )
     st.plotly_chart(fig_map, use_container_width=True)
 
-# Debug table (KB + GB, no Sub/Rec, include operator)
+# ============================================================
+# Debug table (includes Sub/Rec, KB+GB, and SEQUENCE 1..N)
+# ============================================================
 with st.expander("🧪 Debug: values used for ranking (top 50)"):
     dbg = year_df.head(50).copy()
     dbg["Top Operator"] = dbg["Country"].map(top_operator_per_country)
 
+    # add sequence 1..N
+    dbg.insert(0, "No.", range(1, len(dbg) + 1))
+
     dbg = dbg[
         [
+            "No.",
             "Year",
             "Country",
+            "Total SubCount",
+            "Total RecCount",
             "Total Duration(min)",
             "Total Volume(KB)",
             "Total Volume(GB)",
