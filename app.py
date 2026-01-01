@@ -365,13 +365,17 @@ if not missing_ids.empty:
             edit_df,
             use_container_width=True,
             num_rows="fixed",
+            hide_index=True,
             column_config={
-                "Network ID": st.column_config.TextColumn(disabled=True),
-                "Partner Name": st.column_config.TextColumn(disabled=True),
-                "Country": st.column_config.TextColumn(help="Type the country name (e.g., Bermuda, India)"),
+                 "Network ID": st.column_config.TextColumn(disabled=True),
+                 "Partner Name": st.column_config.TextColumn(disabled=True),
+                 "Country": st.column_config.TextColumn(
+                      help="Type the country name (e.g., Bermuda, India)"
+                 ),
             },
             key="missing_editor",
         )
+    
         if st.button("✅ Save mappings", type="primary"):
             to_save = edited.copy()
             to_save["Network ID"] = to_save["Network ID"].astype(str).str.strip()
@@ -484,11 +488,7 @@ with right:
     st.plotly_chart(fig_map, use_container_width=True)
 
 with st.expander("🧪 Debug: values used for ranking (top 50)"):
-    st.dataframe(
-    year_df.head(50),
-    use_container_width=True,
-    hide_index=True
-)
+    st.dataframe(year_df.head(50), use_container_width=True)
 
 # ============================================================
 # Download charts
