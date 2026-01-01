@@ -476,13 +476,12 @@ with st.expander("🧪 Debug: values used for ranking (top 50)"):
     dbg = year_df.head(50).copy()
     dbg["Top Operator"] = dbg["Country"].map(top_operator_per_country)
 
-    # add sequence 1..N
+    # sequence column 1,2,3,...
     dbg.insert(0, "No.", range(1, len(dbg) + 1))
 
     dbg = dbg[
         [
             "No.",
-            "Year",
             "Country",
             "Total SubCount",
             "Total RecCount",
@@ -497,6 +496,7 @@ with st.expander("🧪 Debug: values used for ranking (top 50)"):
     ]
 
     st.dataframe(dbg, use_container_width=True, hide_index=True)
+
 
 # ============================================================
 # Download charts (HTML only)
