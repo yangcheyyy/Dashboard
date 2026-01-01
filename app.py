@@ -490,19 +490,59 @@ with st.expander("🧪 Debug: values used for ranking (top 50)"):
 # Download charts
 # ============================================================
 st.subheader("⬇️ Download Charts")
+
 safe_metric = re.sub(r"[^A-Za-z0-9_]+", "_", str(metric)).strip("_")
+
 bar_html = fig_bar.to_html(full_html=True, include_plotlyjs="cdn").encode("utf-8")
 map_html = fig_map.to_html(full_html=True, include_plotlyjs="cdn").encode("utf-8")
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.download_button("📊 Bar (HTML)", data=bar_html, file_name=f"bar_{safe_metric}_{year_selected}.html", mime="text/html")
-with c2:
-    st.download_button("🗺️ Map (HTML)", data=map_html, file_name=f"map_{safe_metric}_{year_selected}.html", mime="text/html")
 
+c1, c2, c3, c4 = st.columns(4)
+
+with c1:
+    st.download_button(
+        "📊 Bar (HTML)",
+        data=bar_html,
+        file_name=f"bar_{safe_metric}_{year_selected}.html",
+        mime="text/html",
+    )
+
+with c2:
+    st.download_button(
+        "🗺️ Map (HTML)",
+        data=map_html,
+        file_name=f"map_{safe_metric}_{year_selected}.html",
+        mime="text/html",
+    )
+
+# PNG downloads (optional)
+png_enabled = False
+
+# This checks kaleido is installed, but PNG may still fail if Chrome/Chromium is missing
 if has_kaleido():
-    bar_png = fig_bar.to_image(format="png", scale=3)
-    map_png = fig_map.to_image(format="png", scale=3)
-    with c3:
-        st.download_button("📊 Bar (PNG)", data=bar_png, file_name=f"bar_{safe_metric}_{year_selected}.png", mime="image/png")
-    with c4:
-        st.download_button("🗺️ Map (PNG)", data=map_png, file_name=f"map_{safe_metric}_{year_selected}.png", mime="image/png")
+    try:
+        bar_png = fig_bar.to_image(format="png", scale=3)
+        map_png = fig_map.to_image(format="png", scale=3)
+        png_enabled = True
+
+        with c3:
+            st.download_button(
+                "📊 Bar (PNG)",
+                data=bar_png,
+                file_name=f"bar_{safe_metric}_{year_selected}.png",
+                mime="image/png",
+            )
+
+        with c4:
+            st.download_button(
+                "🗺️ Map (PNG)",
+                data=map_png,
+                file_name=f"map_{safe_metric}_{year_selected}.png",
+                mime="image/png",
+            )
+
+    except Exception:
+        # Don't crash the app if Chrome isn't available in the deployment env
+        png_enabled = False
+
+if has_kaleido() and not png_enabled:
+    st.info("PNG export is not available on this deployment (missing Chrome/Chromium). Use HTML downloads instead.")
