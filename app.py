@@ -488,7 +488,11 @@ with right:
     st.plotly_chart(fig_map, use_container_width=True)
 
 with st.expander("🧪 Debug: values used for ranking (top 50)"):
-    st.dataframe(year_df.head(50), use_container_width=True)
+    st.dataframe(
+        year_df.head(50),
+        use_container_width=True,
+        hide_index=True
+    )
 
 # ============================================================
 # Download charts
