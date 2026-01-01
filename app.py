@@ -367,15 +367,15 @@ if not missing_ids.empty:
             num_rows="fixed",
             hide_index=True,
             column_config={
-                 "Network ID": st.column_config.TextColumn(disabled=True),
-                 "Partner Name": st.column_config.TextColumn(disabled=True),
-                 "Country": st.column_config.TextColumn(
-                      help="Type the country name (e.g., Bermuda, India)"
-                 ),
+                "Network ID": st.column_config.TextColumn(disabled=True),
+                "Partner Name": st.column_config.TextColumn(disabled=True),
+                "Country": st.column_config.TextColumn(
+                    help="Type the country name (e.g., Bermuda, India)"
+                ),
             },
             key="missing_editor",
         )
-    
+
         if st.button("✅ Save mappings", type="primary"):
             to_save = edited.copy()
             to_save["Network ID"] = to_save["Network ID"].astype(str).str.strip()
@@ -438,7 +438,7 @@ left, right = st.columns([1, 1])
 with left:
     st.subheader(f"🏆 Top {top_n} Countries ({metric}) - {year_selected}")
     top_df = year_df.head(top_n).copy()
-    # Add top operator for bar hover
+
     top_operator_df = (
         df_ok[df_ok["Year"] == year_selected]
         .groupby(["Country", "Partner Name"], as_index=False)
@@ -449,7 +449,9 @@ with left:
         .set_index("Country")["Partner Name"]
         .to_dict()
     )
+
     top_df["Top Operator"] = top_df["Country"].map(top_operator_per_country)
+
     fig_bar = px.bar(
         top_df,
         x="Country",
@@ -462,22 +464,23 @@ with left:
     st.plotly_chart(fig_bar, use_container_width=True)
 
 # --------------------------
-# World Map with Top Operator
+# World Map with Top Operator (NO DUPLICATE TOTAL VOLUME)
 # --------------------------
 with right:
     st.subheader(f"🗺️ World Map ({metric}) - {year_selected}")
     map_df = year_df[year_df["ISO3"].notna()].copy()
     map_df["Top Operator"] = map_df["Country"].map(top_operator_per_country)
-    map_df["hover_text"] = (
-        map_df["Country"] + "<br>" +
-        metric + ": " + map_df[metric].astype(str) + "<br>" +
-        "Top Operator: " + map_df["Top Operator"].fillna("N/A")
-    )
+
     fig_map = px.choropleth(
         map_df,
         locations="ISO3",
         color=metric,
-        hover_name="hover_text",
+        hover_data={
+            "Country": True,
+            metric: ":,.2f",
+            "Top Operator": True,
+            "ISO3": False
+        },
         color_continuous_scale="Blues",
         title=""
     )
@@ -487,6 +490,9 @@ with right:
     )
     st.plotly_chart(fig_map, use_container_width=True)
 
+# --------------------------
+# Debug table (no left numbers)
+# --------------------------
 with st.expander("🧪 Debug: values used for ranking (top 50)"):
     st.dataframe(
         year_df.head(50),
@@ -495,7 +501,7 @@ with st.expander("🧪 Debug: values used for ranking (top 50)"):
     )
 
 # ============================================================
-# Download charts
+# Download charts (HTML only)
 # ============================================================
 st.subheader("⬇️ Download Charts")
 
@@ -504,7 +510,7 @@ safe_metric = re.sub(r"[^A-Za-z0-9_]+", "_", str(metric)).strip("_")
 bar_html = fig_bar.to_html(full_html=True, include_plotlyjs="cdn").encode("utf-8")
 map_html = fig_map.to_html(full_html=True, include_plotlyjs="cdn").encode("utf-8")
 
-c1, c2, c3, c4 = st.columns(4)
+c1, c2 = st.columns(2)
 
 with c1:
     st.download_button(
