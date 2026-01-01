@@ -117,7 +117,7 @@ def detect_country_from_partner_text(partner_name: str):
 
 
 # ============================================================
-# Extract totals (now includes Total SubCount & Total RecCount)
+# Extract totals (volume KB + GB)
 # ============================================================
 def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [str(c).strip().replace("\n", " ") for c in df.columns]
@@ -126,8 +126,6 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     def norm(s: str) -> str:
         return re.sub(r"\s+", "", str(s).strip().lower())
 
-    total_sub_col = None
-    total_rec_col = None
     total_volume_col = None
     total_gprs_col = None
     total_voice_col = None
@@ -138,23 +136,12 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     for c in df.columns:
         lc = norm(c)
-
         if "partnername" in lc:
             rename_map[c] = "Partner Name"
             continue
         if "networkid" in lc:
             rename_map[c] = "Network ID"
             continue
-
-        # Total Sub/Rec
-        if lc == "totalsubcount" or ("total" in lc and "subcount" in lc):
-            total_sub_col = c
-            continue
-        if lc == "totalreccount" or ("total" in lc and "reccount" in lc):
-            total_rec_col = c
-            continue
-
-        # Total volume/duration/amounts
         if lc == "totalvolume(kb)" or ("total" in lc and "volume(kb)" in lc):
             total_volume_col = c
             continue
@@ -167,19 +154,12 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
         if ("totalvoice" in lc and "amount" in lc) or ("totalvoiceamount" in lc):
             total_voice_col = c
             continue
-
-        # If totals not present, allow daily volume sum
         if daily_vol_regex.match(str(c)):
             daily_volume_cols.append(c)
             continue
 
     df = df.rename(columns=rename_map)
 
-    # Total Sub/Rec
-    df["Total SubCount"] = pd.to_numeric(df[total_sub_col], errors="coerce").fillna(0) if total_sub_col else 0.0
-    df["Total RecCount"] = pd.to_numeric(df[total_rec_col], errors="coerce").fillna(0) if total_rec_col else 0.0
-
-    # Total Volume(KB)
     if total_volume_col is not None:
         df["Total Volume(KB)"] = pd.to_numeric(df[total_volume_col], errors="coerce").fillna(0)
     elif daily_volume_cols:
@@ -191,7 +171,7 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     df["Total GPRS Amount(USD)"] = pd.to_numeric(df[total_gprs_col], errors="coerce").fillna(0) if total_gprs_col else 0.0
     df["Total Voice Amount(USD)"] = pd.to_numeric(df[total_voice_col], errors="coerce").fillna(0) if total_voice_col else 0.0
 
-    # Convert KB → GB (1 GB = 1024*1024 KB)
+    # KB → GB (1 GB = 1024*1024 KB)
     df["Total Volume(GB)"] = df["Total Volume(KB)"] / (1024 * 1024)
 
     return df
@@ -278,8 +258,8 @@ def parse_workbook(file_bytes: bytes, filename: str):
 
         needed = [
             "Partner Name", "Network ID",
-            "Total SubCount", "Total RecCount",
-            "Total Duration(min)", "Total Volume(KB)", "Total Volume(GB)",
+            "Total Duration(min)",
+            "Total Volume(KB)", "Total Volume(GB)",
             "Total GPRS Amount(USD)", "Total Voice Amount(USD)"
         ]
         if any(col not in df.columns for col in needed):
@@ -296,8 +276,8 @@ def parse_workbook(file_bytes: bytes, filename: str):
         ].copy()
 
         numeric_cols = [
-            "Total SubCount", "Total RecCount",
-            "Total Duration(min)", "Total Volume(KB)", "Total Volume(GB)",
+            "Total Duration(min)",
+            "Total Volume(KB)", "Total Volume(GB)",
             "Total GPRS Amount(USD)", "Total Voice Amount(USD)"
         ]
         for col in numeric_cols:
@@ -310,16 +290,12 @@ def parse_workbook(file_bytes: bytes, filename: str):
     if not rows:
         return pd.DataFrame(columns=[
             "Partner Name", "Network ID",
-            "Total SubCount", "Total RecCount",
-            "Total Duration(min)", "Total Volume(KB)", "Total Volume(GB)",
+            "Total Duration(min)",
+            "Total Volume(KB)", "Total Volume(GB)",
             "Total GPRS Amount(USD)", "Total Voice Amount(USD)",
             "Year", "Month"
         ])
     return pd.concat(rows, ignore_index=True)
-
-
-def has_kaleido() -> bool:
-    return importlib.util.find_spec("kaleido") is not None
 
 
 # ============================================================
@@ -398,59 +374,13 @@ new_pairs = new_pairs[new_pairs["Country"].astype(str).str.strip() != ""]
 if not new_pairs.empty:
     mapping = save_new_mappings_to_csv(mapping, new_pairs)
 
-# Auto-save inferred mappings (partner)
-new_partner_pairs = df[df["Country_inferred"].astype(str).str.strip() != ""][["Partner Name", "Country_inferred"]].rename(columns={"Country_inferred": "Country"}).drop_duplicates()
-existing_pm = set(partner_map["Partner Name"].astype(str).str.lower())
-new_partner_pairs = new_partner_pairs[~new_partner_pairs["Partner Name"].astype(str).str.lower().isin(existing_pm)]
-if not new_partner_pairs.empty:
-    partner_map = save_partner_mappings(partner_map, new_partner_pairs)
-
 df["Country"] = df["Country_inferred"]
 
 # ============================================================
-# Missing after inference (editable)
-# ============================================================
-missing = df[df["Country"] == ""]
-missing_ids = missing[["Network ID", "Partner Name"]].drop_duplicates().sort_values("Network ID")
-
-if not missing_ids.empty:
-    st.warning(f"⚠️ Still missing: {missing_ids.shape[0]} Network IDs. Fill Country below and click Save (one-time only).")
-    with st.expander("🛠️ Fix missing Network IDs (type Country and Save)"):
-        edit_df = missing_ids.copy()
-        edit_df["Country"] = ""
-        edited = st.data_editor(
-            edit_df,
-            use_container_width=True,
-            num_rows="fixed",
-            hide_index=True,
-            column_config={
-                "Network ID": st.column_config.TextColumn(disabled=True),
-                "Partner Name": st.column_config.TextColumn(disabled=True),
-                "Country": st.column_config.TextColumn(help="Type the country name (e.g., Bermuda, India)"),
-            },
-            key="missing_editor",
-        )
-
-        if st.button("✅ Save mappings", type="primary"):
-            to_save = edited.copy()
-            to_save["Network ID"] = to_save["Network ID"].astype(str).str.strip()
-            to_save["Country"] = to_save["Country"].astype(str).str.strip()
-            to_save = to_save[(to_save["Network ID"] != "") & (to_save["Country"] != "")]
-            if to_save.empty:
-                st.error("Please fill at least one Country before saving.")
-            else:
-                mapping = save_new_mappings_to_csv(mapping, to_save[["Network ID", "Country"]])
-                st.success(f"Saved {to_save.shape[0]} mapping(s). Refreshing…")
-                st.rerun()
-
-# ============================================================
-# Aggregate (now includes Sub/Rec & Volume(GB))
+# Aggregate (metric uses GB only)
 # ============================================================
 df_ok = df[df["Country"] != ""].copy()
-
 country_usage = df_ok.groupby(["Year", "Country"], as_index=False).agg({
-    "Total SubCount": "sum",
-    "Total RecCount": "sum",
     "Total Duration(min)": "sum",
     "Total Volume(KB)": "sum",
     "Total Volume(GB)": "sum",
@@ -476,8 +406,6 @@ with colB:
         [
             "Total Volume(GB)",
             "Total Duration(min)",
-            "Total SubCount",
-            "Total RecCount",
             "Total GPRS Amount(USD)",
             "Total Voice Amount(USD)",
         ],
@@ -490,26 +418,23 @@ year_df = country_usage[country_usage["Year"] == year_selected].copy().sort_valu
 # ============================================================
 # Visuals with Top Operator per Country
 # ============================================================
+top_operator_df = (
+    df_ok[df_ok["Year"] == year_selected]
+    .groupby(["Country", "Partner Name"], as_index=False)
+    .agg({metric: "sum"})
+)
+top_operator_per_country = (
+    top_operator_df.loc[top_operator_df.groupby("Country")[metric].idxmax()]
+    .set_index("Country")["Partner Name"]
+    .to_dict()
+)
+
 left, right = st.columns([1, 1])
 
-# --------------------------
-# Top N Countries Bar Chart
-# --------------------------
+# Bar
 with left:
     st.subheader(f"🏆 Top {top_n} Countries ({metric}) - {year_selected}")
     top_df = year_df.head(top_n).copy()
-
-    top_operator_df = (
-        df_ok[df_ok["Year"] == year_selected]
-        .groupby(["Country", "Partner Name"], as_index=False)
-        .agg({metric: "sum"})
-    )
-    top_operator_per_country = (
-        top_operator_df.loc[top_operator_df.groupby("Country")[metric].idxmax()]
-        .set_index("Country")["Partner Name"]
-        .to_dict()
-    )
-
     top_df["Top Operator"] = top_df["Country"].map(top_operator_per_country)
 
     fig_bar = px.bar(
@@ -523,9 +448,7 @@ with left:
     fig_bar.update_layout(xaxis_tickangle=-45, template="plotly_white")
     st.plotly_chart(fig_bar, use_container_width=True)
 
-# --------------------------
-# World Map with Top Operator (NO duplicate volume)
-# --------------------------
+# Map (GB only)
 with right:
     st.subheader(f"🗺️ World Map ({metric}) - {year_selected}")
     map_df = year_df[year_df["ISO3"].notna()].copy()
@@ -550,9 +473,7 @@ with right:
     )
     st.plotly_chart(fig_map, use_container_width=True)
 
-# --------------------------
-# Debug table (all requested columns + Top Operator, no left index)
-# --------------------------
+# Debug table (KB + GB, no Sub/Rec, include operator)
 with st.expander("🧪 Debug: values used for ranking (top 50)"):
     dbg = year_df.head(50).copy()
     dbg["Top Operator"] = dbg["Country"].map(top_operator_per_country)
@@ -561,9 +482,8 @@ with st.expander("🧪 Debug: values used for ranking (top 50)"):
         [
             "Year",
             "Country",
-            "Total SubCount",
-            "Total RecCount",
             "Total Duration(min)",
+            "Total Volume(KB)",
             "Total Volume(GB)",
             "Total GPRS Amount(USD)",
             "Total Voice Amount(USD)",
