@@ -525,33 +525,13 @@ def run_data_plan():
             return "45-54"
         return "55+"
 
-    def norm_id(x):
-        if x is None:
-            return ""
-        s = str(x).strip()
-        if s.lower() in ["nan", "none"]:
-            return ""
-        return s
-
-    def remove_975_prefix(s):
-        s = norm_id(s)
-        return s[3:] if s.startswith("975") else s
-
     def pick_first_existing_col(df, candidates):
         for c in candidates:
             if c in df.columns:
                 return c
         return None
 
-    def read_uploaded_table(file) -> pd.DataFrame:
-        name = file.name.lower()
-        if name.endswith(".csv"):
-            return pd.read_csv(file)
-        if name.endswith(".xlsx") or name.endswith(".xls"):
-            return pd.read_excel(file)
-        raise ValueError("Unsupported file type")
-
-    # Plan standardization
+    # plan standardization (same as your logic)
     def clean_plan_name(x):
         if x is None:
             return ""
@@ -571,6 +551,16 @@ def run_data_plan():
         }
         return plan_map.get(s, s)
 
+    # ---------- caching for file reads ----------
+    @st.cache_data(show_spinner=False)
+    def read_uploaded_table_cached(file_name: str, file_bytes: bytes) -> pd.DataFrame:
+        name = file_name.lower()
+        if name.endswith(".csv"):
+            return pd.read_csv(io.BytesIO(file_bytes))
+        if name.endswith(".xlsx") or name.endswith(".xls"):
+            return pd.read_excel(io.BytesIO(file_bytes))
+        raise ValueError("Unsupported file type")
+
     # ---------- upload ----------
     st.sidebar.header("Upload (Data Plan)")
     customer_file = st.sidebar.file_uploader(
@@ -589,30 +579,26 @@ def run_data_plan():
         st.info("Upload BOTH customer data and recharge data to begin.")
         st.stop()
 
-    # ---------- load ----------
-    try:
-        customer_df = read_uploaded_table(customer_file)
-    except Exception as e:
-        st.error(f"Failed to read customer file: {e}")
-        st.stop()
+    with st.spinner("Reading files..."):
+        customer_df = read_uploaded_table_cached(customer_file.name, customer_file.getvalue())
 
-    recharge_parts = []
-    source_map = {}
-    for f in recharge_files:
-        try:
-            df = read_uploaded_table(f)
-            source_name = f.name.rsplit(".", 1)[0]
-            df["source"] = source_name
-            recharge_parts.append(df)
-            source_map[source_name] = df
-        except Exception as e:
-            st.warning(f"Skipped {f.name} (could not read): {e}")
+        recharge_parts = []
+        source_map = {}
+        for f in recharge_files:
+            try:
+                df = read_uploaded_table_cached(f.name, f.getvalue())
+                source_name = f.name.rsplit(".", 1)[0]
+                df["source"] = source_name
+                recharge_parts.append(df)
+                source_map[source_name] = df
+            except Exception as e:
+                st.warning(f"Skipped {f.name} (could not read): {e}")
 
-    if not recharge_parts:
-        st.error("No recharge files could be read.")
-        st.stop()
+        if not recharge_parts:
+            st.error("No recharge files could be read.")
+            st.stop()
 
-    recharge_df = pd.concat(recharge_parts, ignore_index=True)
+        recharge_df = pd.concat(recharge_parts, ignore_index=True)
 
     # ---------- key columns ----------
     service_id_col = pick_first_existing_col(customer_df, ["Service_ID", "SERVICE_ID", "service_id"])
@@ -640,97 +626,77 @@ def run_data_plan():
         st.write("Recharge columns:", list(recharge_df.columns))
         st.stop()
 
-    # standardize plan names for cleaner display
-    customer_df[plan_col] = customer_df[plan_col].apply(standardize_plan)
+    # ---------- clean + prep (vectorized) ----------
+    with st.spinner("Processing and matching..."):
+        cust = customer_df[[service_id_col, dob_col, plan_col]].copy()
 
-    # ---------- build customer map ----------
-    customer_map = {}
-    for _, r in customer_df.iterrows():
-        sid = norm_id(r.get(service_id_col))
-        if not sid:
-            continue
+        cust["sid"] = cust[service_id_col].astype(str).str.strip()
+        cust = cust[~cust["sid"].str.lower().isin(["nan", "none", ""])].copy()
 
-        age = calculate_age(r.get(dob_col))
-        age_group = get_age_group(age)
-        plan = standardize_plan(r.get(plan_col))
+        # plan standardize (same output)
+        cust["Plan"] = cust[plan_col].apply(standardize_plan)
 
-        info = {"age": age, "ageGroup": age_group, "plan": plan if plan is not None else ""}
-        customer_map[sid] = info
-        customer_map["975" + sid] = info
+        # age + age group (same output)
+        cust["Age"] = cust[dob_col].apply(calculate_age)
+        cust["Age Group"] = cust["Age"].apply(get_age_group)
 
-    # ---------- aggregate ----------
-    matched = 0
-    age_stats = {}
-    plan_stats = {}
+        # recharge prep
+        rech = recharge_df[[recharge_num_col, amount_col, "source"]].copy()
+        rech["rid"] = rech[recharge_num_col].astype(str).str.strip()
+        rech = rech[~rech["rid"].str.lower().isin(["nan", "none", ""])].copy()
+        rech["rid_no975"] = rech["rid"].str.replace(r"^975", "", regex=True)
 
-    for _, rr in recharge_df.iterrows():
-        cust_id_raw = norm_id(rr.get(recharge_num_col))
-        if not cust_id_raw:
-            continue
+        rech["Amount"] = pd.to_numeric(rech[amount_col], errors="coerce").fillna(0.0)
 
-        cust_id_no975 = remove_975_prefix(cust_id_raw)
-        customer = customer_map.get(cust_id_raw) or customer_map.get(cust_id_no975)
-        if not customer:
-            continue
+        # EXACT same matching logic: match with/without 975
+        merged = rech.merge(cust[["sid", "Age Group", "Plan"]], left_on="rid_no975", right_on="sid", how="inner")
 
-        matched += 1
-        amt = rr.get(amount_col)
-        try:
-            amount = float(amt) if amt is not None and str(amt).strip() != "" else 0.0
-        except Exception:
-            amount = 0.0
+        matched = len(merged)
 
-        ag = customer["ageGroup"]
-        pl = standardize_plan(customer["plan"]) if customer["plan"] else "Unknown plan"
+        # -------- age group stats (same output fields) --------
+        order = ["Under 18", "18-24", "25-34", "35-44", "45-54", "55+"]
 
-        if ag not in age_stats:
-            age_stats[ag] = {"ageGroup": ag, "totalRecharges": 0, "totalAmount": 0.0, "users": set()}
-        age_stats[ag]["totalRecharges"] += 1
-        age_stats[ag]["totalAmount"] += amount
-        age_stats[ag]["users"].add(cust_id_no975)
+        age_group_df = (
+            merged.groupby("Age Group", as_index=False)
+            .agg(
+                Users=("rid_no975", "nunique"),
+                **{
+                    "Total Recharges": ("rid_no975", "size"),
+                    "Total Amount (Nu)": ("Amount", "sum"),
+                }
+            )
+        )
+        age_group_df["Total Amount (Nu)"] = age_group_df["Total Amount (Nu)"].round(2)
+        age_group_df["Avg Amount (Nu)"] = (age_group_df["Total Amount (Nu)"] / age_group_df["Total Recharges"]).round(2)
 
-        key = (ag, pl)
-        plan_stats[key] = plan_stats.get(key, 0) + 1
-
-    order = ["Under 18", "18-24", "25-34", "35-44", "45-54", "55+"]
-
-    age_group_df = pd.DataFrame([
-        {
-            "Age Group": v["ageGroup"],
-            "Users": len(v["users"]),
-            "Total Recharges": v["totalRecharges"],
-            "Total Amount (Nu)": round(v["totalAmount"], 2),
-            "Avg Amount (Nu)": round((v["totalAmount"] / v["totalRecharges"]) if v["totalRecharges"] else 0, 2),
-        }
-        for v in age_stats.values()
-    ])
-    if not age_group_df.empty:
         age_group_df["__ord"] = age_group_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
         age_group_df = age_group_df.sort_values("__ord").drop(columns="__ord")
 
-    plan_by_age_df = pd.DataFrame([
-        {"Age Group": ag, "Plan": pl, "Recharge Count": cnt}
-        for (ag, pl), cnt in plan_stats.items()
-    ])
-    if not plan_by_age_df.empty:
+        # -------- plan distribution by age (same output) --------
+        plan_by_age_df = (
+            merged.assign(Plan=merged["Plan"].replace("", "Unknown plan"))
+            .groupby(["Age Group", "Plan"], as_index=False)
+            .agg(**{"Recharge Count": ("Plan", "size")})
+        )
         plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
         plan_by_age_df = plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False]).drop(columns="__ord")
 
-    # source analysis
-    source_rows = []
-    for src, df in source_map.items():
-        a = pd.to_numeric(df.get(amount_col), errors="coerce").fillna(0).sum() if amount_col in df.columns else 0
-        source_rows.append({
-            "Source": src,
-            "Total Recharges": len(df),
-            "Total Amount (Nu)": float(a),
-            "Avg Amount (Nu)": float(a / len(df)) if len(df) else 0.0
-        })
-    source_df = pd.DataFrame(source_rows).sort_values("Total Amount (Nu)", ascending=False)
+        # -------- source analysis (same output) --------
+        source_rows = []
+        for src, df in source_map.items():
+            a = pd.to_numeric(df.get(amount_col), errors="coerce").fillna(0).sum() if amount_col in df.columns else 0
+            source_rows.append({
+                "Source": src,
+                "Total Recharges": len(df),
+                "Total Amount (Nu)": float(a),
+                "Avg Amount (Nu)": float(a / len(df)) if len(df) else 0.0
+            })
+        source_df = pd.DataFrame(source_rows).sort_values("Total Amount (Nu)", ascending=False)
+
+        # metrics (same)
+        total_rev = pd.to_numeric(recharge_df[amount_col], errors="coerce").fillna(0).sum()
 
     # ---------- metrics ----------
-    total_rev = pd.to_numeric(recharge_df[amount_col], errors="coerce").fillna(0).sum()
-
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total Customers", f"{len(customer_df):,}")
     m2.metric("Total Recharges", f"{len(recharge_df):,}")
@@ -832,12 +798,3 @@ def run_data_plan():
             )
             fig_pop.update_layout(template="plotly_white", xaxis_tickangle=-45)
             st.plotly_chart(fig_pop, use_container_width=True)
-
-
-# ============================================================
-# Router
-# ============================================================
-if analysis.startswith("1)"):
-    run_roaming()
-else:
-    run_data_plan()
