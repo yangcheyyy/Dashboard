@@ -484,8 +484,18 @@ def run_roaming():
 
 
 # ============================================================
-# 2) DATA PLAN USAGE BY AGE GROUP
+# 2) DATA PLAN USAGE BY AGE GROUP (FAST VERSION)
 # ============================================================
+
+@st.cache_data(show_spinner=False)
+def read_uploaded_table_cached(file_name: str, file_bytes: bytes) -> pd.DataFrame:
+    name = file_name.lower()
+    if name.endswith(".csv"):
+        return pd.read_csv(io.BytesIO(file_bytes))
+    if name.endswith(".xlsx") or name.endswith(".xls"):
+        return pd.read_excel(io.BytesIO(file_bytes))
+    raise ValueError("Unsupported file type")
+
 
 def run_data_plan():
     st.title("Data Plan Usage by Age Group")
@@ -531,7 +541,7 @@ def run_data_plan():
                 return c
         return None
 
-    # plan standardization (same as your logic)
+    # Plan standardization (same as your original)
     def clean_plan_name(x):
         if x is None:
             return ""
@@ -550,16 +560,6 @@ def run_data_plan():
             "New Package": "New Package",
         }
         return plan_map.get(s, s)
-
-    # ---------- caching for file reads ----------
-    @st.cache_data(show_spinner=False)
-    def read_uploaded_table_cached(file_name: str, file_bytes: bytes) -> pd.DataFrame:
-        name = file_name.lower()
-        if name.endswith(".csv"):
-            return pd.read_csv(io.BytesIO(file_bytes))
-        if name.endswith(".xlsx") or name.endswith(".xls"):
-            return pd.read_excel(io.BytesIO(file_bytes))
-        raise ValueError("Unsupported file type")
 
     # ---------- upload ----------
     st.sidebar.header("Upload (Data Plan)")
@@ -626,36 +626,30 @@ def run_data_plan():
         st.write("Recharge columns:", list(recharge_df.columns))
         st.stop()
 
-    # ---------- clean + prep (vectorized) ----------
     with st.spinner("Processing and matching..."):
+        # Prepare customer table
         cust = customer_df[[service_id_col, dob_col, plan_col]].copy()
-
         cust["sid"] = cust[service_id_col].astype(str).str.strip()
         cust = cust[~cust["sid"].str.lower().isin(["nan", "none", ""])].copy()
 
-        # plan standardize (same output)
         cust["Plan"] = cust[plan_col].apply(standardize_plan)
-
-        # age + age group (same output)
         cust["Age"] = cust[dob_col].apply(calculate_age)
         cust["Age Group"] = cust["Age"].apply(get_age_group)
 
-        # recharge prep
+        # Prepare recharge table
         rech = recharge_df[[recharge_num_col, amount_col, "source"]].copy()
         rech["rid"] = rech[recharge_num_col].astype(str).str.strip()
         rech = rech[~rech["rid"].str.lower().isin(["nan", "none", ""])].copy()
         rech["rid_no975"] = rech["rid"].str.replace(r"^975", "", regex=True)
-
         rech["Amount"] = pd.to_numeric(rech[amount_col], errors="coerce").fillna(0.0)
 
-        # EXACT same matching logic: match with/without 975
+        # Match like your original logic (with/without 975)
         merged = rech.merge(cust[["sid", "Age Group", "Plan"]], left_on="rid_no975", right_on="sid", how="inner")
-
         matched = len(merged)
 
-        # -------- age group stats (same output fields) --------
         order = ["Under 18", "18-24", "25-34", "35-44", "45-54", "55+"]
 
+        # Age group summary (same columns)
         age_group_df = (
             merged.groupby("Age Group", as_index=False)
             .agg(
@@ -667,21 +661,23 @@ def run_data_plan():
             )
         )
         age_group_df["Total Amount (Nu)"] = age_group_df["Total Amount (Nu)"].round(2)
-        age_group_df["Avg Amount (Nu)"] = (age_group_df["Total Amount (Nu)"] / age_group_df["Total Recharges"]).round(2)
+        age_group_df["Avg Amount (Nu)"] = (
+            age_group_df["Total Amount (Nu)"] / age_group_df["Total Recharges"]
+        ).round(2)
 
         age_group_df["__ord"] = age_group_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
         age_group_df = age_group_df.sort_values("__ord").drop(columns="__ord")
 
-        # -------- plan distribution by age (same output) --------
+        # Plan distribution (same columns)
+        merged["Plan"] = merged["Plan"].replace("", "Unknown plan")
         plan_by_age_df = (
-            merged.assign(Plan=merged["Plan"].replace("", "Unknown plan"))
-            .groupby(["Age Group", "Plan"], as_index=False)
+            merged.groupby(["Age Group", "Plan"], as_index=False)
             .agg(**{"Recharge Count": ("Plan", "size")})
         )
         plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
         plan_by_age_df = plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False]).drop(columns="__ord")
 
-        # -------- source analysis (same output) --------
+        # Source analysis (same as yours: totals per file)
         source_rows = []
         for src, df in source_map.items():
             a = pd.to_numeric(df.get(amount_col), errors="coerce").fillna(0).sum() if amount_col in df.columns else 0
@@ -693,7 +689,7 @@ def run_data_plan():
             })
         source_df = pd.DataFrame(source_rows).sort_values("Total Amount (Nu)", ascending=False)
 
-        # metrics (same)
+        # Metrics (same as yours)
         total_rev = pd.to_numeric(recharge_df[amount_col], errors="coerce").fillna(0).sum()
 
     # ---------- metrics ----------
@@ -798,3 +794,12 @@ def run_data_plan():
             )
             fig_pop.update_layout(template="plotly_white", xaxis_tickangle=-45)
             st.plotly_chart(fig_pop, use_container_width=True)
+
+
+# ============================================================
+# Router
+# ============================================================
+if analysis.startswith("1)"):
+    run_roaming()
+else:
+    run_data_plan()
