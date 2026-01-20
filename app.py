@@ -1,7 +1,7 @@
+# app.py
 import io
 import re
 import os
-import importlib.util
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -10,15 +10,27 @@ import pycountry
 # ============================================================
 # App settings
 # ============================================================
-st.set_page_config(page_title="Roaming Usage Dashboard", layout="wide")
-st.title("📶 Roaming Data Usage by Country")
+st.set_page_config(page_title="TashiCell Analytics Dashboard", layout="wide")
+
+# ============================================================
+# Sidebar navigation
+# ============================================================
+analysis = st.sidebar.selectbox(
+    "Select analysis",
+    [
+        "1) Roaming Data Usage by Country",
+        "2) Data Plan Usage by Age Group",
+    ],
+)
+
+# ============================================================
+# 1) ROAMING USAGE
+# ============================================================
 
 MAPPING_PATH = "mapping/network_to_country.csv"
 PARTNER_MAPPING_PATH = "mapping/partner_to_country.csv"
 
-# ============================================================
-# Helpers
-# ============================================================
+
 def safe_year_from_filename(name: str):
     m = re.search(r"(19\d{2}|20\d{2})", str(name))
     return int(m.group(1)) if m else None
@@ -116,9 +128,6 @@ def detect_country_from_partner_text(partner_name: str):
     return None
 
 
-# ============================================================
-# Extract totals (includes Total SubCount & Total RecCount)
-# ============================================================
 def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [str(c).strip().replace("\n", " ") for c in df.columns]
     rename_map = {}
@@ -186,15 +195,10 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     df["Total GPRS Amount(USD)"] = pd.to_numeric(df[total_gprs_col], errors="coerce").fillna(0) if total_gprs_col else 0.0
     df["Total Voice Amount(USD)"] = pd.to_numeric(df[total_voice_col], errors="coerce").fillna(0) if total_voice_col else 0.0
 
-    # KB → GB
     df["Total Volume(GB)"] = df["Total Volume(KB)"] / (1024 * 1024)
-
     return df
 
 
-# ============================================================
-# Mapping load/save
-# ============================================================
 def load_mapping():
     os.makedirs(os.path.dirname(MAPPING_PATH), exist_ok=True)
     if not os.path.exists(MAPPING_PATH) or os.path.getsize(MAPPING_PATH) == 0:
@@ -207,22 +211,6 @@ def load_mapping():
     m["Country"] = m["Country"].astype(str).fillna("").str.strip()
     m.loc[m["Country"].str.lower().isin(["none", "nan"]), "Country"] = ""
     return m
-
-
-def save_new_mappings_to_csv(mapping_df: pd.DataFrame, new_pairs_df: pd.DataFrame):
-    if new_pairs_df.empty:
-        return mapping_df
-    new_pairs_df = new_pairs_df.copy()
-    new_pairs_df["Network ID"] = new_pairs_df["Network ID"].astype(str).str.strip()
-    new_pairs_df["Country"] = new_pairs_df["Country"].astype(str).str.strip()
-    new_pairs_df = new_pairs_df[(new_pairs_df["Network ID"] != "") & (new_pairs_df["Country"] != "")]
-    if new_pairs_df.empty:
-        return mapping_df
-    combined = pd.concat([mapping_df[["Network ID", "Country"]], new_pairs_df[["Network ID", "Country"]]], ignore_index=True)
-    combined = combined.drop_duplicates(subset=["Network ID"], keep="last").sort_values("Network ID")
-    os.makedirs(os.path.dirname(MAPPING_PATH), exist_ok=True)
-    combined.to_csv(MAPPING_PATH, index=False)
-    return combined
 
 
 def load_partner_mapping():
@@ -239,9 +227,6 @@ def load_partner_mapping():
     return pm
 
 
-# ============================================================
-# Workbook parsing
-# ============================================================
 def parse_workbook(file_bytes: bytes, filename: str):
     year = safe_year_from_filename(filename)
     xls = pd.ExcelFile(io.BytesIO(file_bytes), engine="openpyxl")
@@ -299,229 +284,560 @@ def parse_workbook(file_bytes: bytes, filename: str):
     return pd.concat(rows, ignore_index=True)
 
 
-# ============================================================
-# UI - Sidebar
-# ============================================================
-st.sidebar.header("Upload")
-uploaded_files = st.sidebar.file_uploader(
-    "Upload Daily In Roamers Report Excel file(s)",
-    type=["xlsx"],
-    accept_multiple_files=True
-)
+def run_roaming():
+    st.title("Roaming Data Usage by Country")
 
-mapping = load_mapping()
-partner_map = load_partner_mapping()
-
-if not uploaded_files:
-    st.warning("Upload one or more Excel files to begin.")
-    st.stop()
-
-# ============================================================
-# Parse
-# ============================================================
-all_data = []
-for uf in uploaded_files:
-    part = parse_workbook(uf.getvalue(), uf.name)
-    part["SourceFile"] = uf.name
-    all_data.append(part)
-
-raw_all = pd.concat(all_data, ignore_index=True)
-if raw_all.empty:
-    st.error("No usable data found. Check sheet names/headers.")
-    st.stop()
-
-# ============================================================
-# Merge mapping + inference chain
-# ============================================================
-raw_all["Network ID"] = raw_all["Network ID"].astype(str).str.strip()
-df = raw_all.merge(mapping[["Network ID", "Country"]], on="Network ID", how="left")
-
-pm_dict = dict(zip(partner_map["Partner Name"].astype(str).str.lower(),
-                   partner_map["Country"].astype(str)))
-
-def infer_chain(row):
-    c = row.get("Country", "")
-    if pd.notna(c) and str(c).strip() != "":
-        return str(c).strip()
-
-    pname = str(row.get("Partner Name", "")).strip()
-    nid = str(row.get("Network ID", "")).strip()
-
-    if pname:
-        c_pm = pm_dict.get(pname.lower(), "")
-        if c_pm:
-            return c_pm
-
-    c2 = infer_country_from_partner(pname)
-    if c2:
-        return c2
-
-    c3 = detect_country_from_partner_text(pname)
-    if c3:
-        return c3
-
-    return infer_country_from_network_id(nid)
-
-df["Country_inferred"] = df.apply(infer_chain, axis=1)
-df["Country_inferred"] = df["Country_inferred"].where(df["Country_inferred"].notna(), "")
-df["Country_inferred"] = df["Country_inferred"].astype("string").str.strip().fillna("")
-df.loc[df["Country_inferred"].str.lower().isin(["none", "nan"]), "Country_inferred"] = ""
-df["Country"] = df["Country_inferred"]
-
-# ============================================================
-# Aggregate (keep Sub/Rec only for debug; not used in metric)
-# ============================================================
-df_ok = df[df["Country"] != ""].copy()
-
-country_usage = df_ok.groupby(["Year", "Country"], as_index=False).agg({
-    "Total SubCount": "sum",
-    "Total RecCount": "sum",
-    "Total Duration(min)": "sum",
-    "Total Volume(KB)": "sum",
-    "Total Volume(GB)": "sum",
-    "Total GPRS Amount(USD)": "sum",
-    "Total Voice Amount(USD)": "sum"
-})
-country_usage["ISO3"] = country_usage["Country"].apply(country_to_iso3)
-
-# ============================================================
-# Controls (NO Sub/Rec here)
-# ============================================================
-years = sorted([y for y in country_usage["Year"].dropna().unique() if pd.notna(y)])
-if not years:
-    st.error("Year not detected from filenames. Ensure filenames include year like 2019, 2020, etc.")
-    st.stop()
-
-colA, colB, colC = st.columns([1, 1, 2])
-with colA:
-    year_selected = st.selectbox("Select Year", years, index=len(years) - 1)
-with colB:
-    metric = st.selectbox(
-        "Metric",
-        [
-            "Total Volume(GB)",
-            "Total Duration(min)",
-            "Total GPRS Amount(USD)",
-            "Total Voice Amount(USD)",
-        ],
+    st.sidebar.header("Upload (Roaming)")
+    uploaded_files = st.sidebar.file_uploader(
+        "Upload Daily In Roamers Report Excel file(s)",
+        type=["xlsx"],
+        accept_multiple_files=True
     )
-with colC:
-    top_n = st.slider("Top N countries", 5, 30, 15)
 
-year_df = country_usage[country_usage["Year"] == year_selected].copy().sort_values(metric, ascending=False)
+    mapping = load_mapping()
+    partner_map = load_partner_mapping()
 
-# ============================================================
-# Top operator per country (based on selected metric)
-# ============================================================
-top_operator_df = (
-    df_ok[df_ok["Year"] == year_selected]
-    .groupby(["Country", "Partner Name"], as_index=False)
-    .agg({metric: "sum"})
-)
-top_operator_per_country = (
-    top_operator_df.loc[top_operator_df.groupby("Country")[metric].idxmax()]
-    .set_index("Country")["Partner Name"]
-    .to_dict()
-)
+    if not uploaded_files:
+        st.warning("Upload one or more Excel files to begin.")
+        st.stop()
 
-# ============================================================
-# Visuals
-# ============================================================
-left, right = st.columns([1, 1])
+    all_data = []
+    for uf in uploaded_files:
+        part = parse_workbook(uf.getvalue(), uf.name)
+        part["SourceFile"] = uf.name
+        all_data.append(part)
 
-with left:
-    st.subheader(f"🏆 Top {top_n} Countries ({metric}) - {year_selected}")
-    top_df = year_df.head(top_n).copy()
-    top_df["Top Operator"] = top_df["Country"].map(top_operator_per_country)
+    raw_all = pd.concat(all_data, ignore_index=True)
+    if raw_all.empty:
+        st.error("No usable data found. Check sheet names/headers.")
+        st.stop()
 
-    fig_bar = px.bar(
-        top_df,
-        x="Country",
-        y=metric,
-        hover_data={"Top Operator": True, metric: ":,.4f"},
-        category_orders={"Country": top_df["Country"].tolist()},
-        title=""
+    raw_all["Network ID"] = raw_all["Network ID"].astype(str).str.strip()
+    df = raw_all.merge(mapping[["Network ID", "Country"]], on="Network ID", how="left")
+
+    pm_dict = dict(zip(
+        partner_map["Partner Name"].astype(str).str.lower(),
+        partner_map["Country"].astype(str)
+    ))
+
+    def infer_chain(row):
+        c = row.get("Country", "")
+        if pd.notna(c) and str(c).strip() != "":
+            return str(c).strip()
+
+        pname = str(row.get("Partner Name", "")).strip()
+        nid = str(row.get("Network ID", "")).strip()
+
+        if pname:
+            c_pm = pm_dict.get(pname.lower(), "")
+            if c_pm:
+                return c_pm
+
+        c2 = infer_country_from_partner(pname)
+        if c2:
+            return c2
+
+        c3 = detect_country_from_partner_text(pname)
+        if c3:
+            return c3
+
+        return infer_country_from_network_id(nid)
+
+    df["Country_inferred"] = df.apply(infer_chain, axis=1)
+    df["Country_inferred"] = df["Country_inferred"].where(df["Country_inferred"].notna(), "")
+    df["Country_inferred"] = df["Country_inferred"].astype("string").str.strip().fillna("")
+    df.loc[df["Country_inferred"].str.lower().isin(["none", "nan"]), "Country_inferred"] = ""
+    df["Country"] = df["Country_inferred"]
+
+    df_ok = df[df["Country"] != ""].copy()
+
+    country_usage = df_ok.groupby(["Year", "Country"], as_index=False).agg({
+        "Total SubCount": "sum",
+        "Total RecCount": "sum",
+        "Total Duration(min)": "sum",
+        "Total Volume(KB)": "sum",
+        "Total Volume(GB)": "sum",
+        "Total GPRS Amount(USD)": "sum",
+        "Total Voice Amount(USD)": "sum"
+    })
+    country_usage["ISO3"] = country_usage["Country"].apply(country_to_iso3)
+
+    years = sorted([y for y in country_usage["Year"].dropna().unique() if pd.notna(y)])
+    if not years:
+        st.error("Year not detected from filenames. Ensure filenames include year like 2019, 2020, etc.")
+        st.stop()
+
+    colA, colB, colC = st.columns([1, 1, 2])
+    with colA:
+        year_selected = st.selectbox("Select Year", years, index=len(years) - 1)
+    with colB:
+        metric = st.selectbox(
+            "Metric",
+            [
+                "Total Volume(GB)",
+                "Total Duration(min)",
+                "Total GPRS Amount(USD)",
+                "Total Voice Amount(USD)",
+            ],
+        )
+    with colC:
+        top_n = st.slider("Top N countries", 5, 30, 15)
+
+    year_df = country_usage[country_usage["Year"] == year_selected].copy().sort_values(metric, ascending=False)
+
+    top_operator_df = (
+        df_ok[df_ok["Year"] == year_selected]
+        .groupby(["Country", "Partner Name"], as_index=False)
+        .agg({metric: "sum"})
     )
-    fig_bar.update_layout(xaxis_tickangle=-45, template="plotly_white")
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-with right:
-    st.subheader(f"🗺️ World Map ({metric}) - {year_selected}")
-    map_df = year_df[year_df["ISO3"].notna()].copy()
-    map_df["Top Operator"] = map_df["Country"].map(top_operator_per_country)
-
-    fig_map = px.choropleth(
-        map_df,
-        locations="ISO3",
-        color=metric,
-        hover_data={
-            "Country": True,
-            metric: ":,.4f",
-            "Top Operator": True,
-            "ISO3": False
-        },
-        color_continuous_scale="Blues",
-        title=""
+    top_operator_per_country = (
+        top_operator_df.loc[top_operator_df.groupby("Country")[metric].idxmax()]
+        .set_index("Country")["Partner Name"]
+        .to_dict()
     )
-    fig_map.update_layout(
-        template="plotly_white",
-        geo=dict(showframe=False, showcoastlines=True, projection_type="natural earth")
-    )
-    st.plotly_chart(fig_map, use_container_width=True)
 
-# ============================================================
-# Debug table (includes Sub/Rec, KB+GB, and SEQUENCE 1..N)
-# ============================================================
-with st.expander("🧪 Debug: values used for ranking (top 50)"):
-    dbg = year_df.head(50).copy()
-    dbg["Top Operator"] = dbg["Country"].map(top_operator_per_country)
+    left, right = st.columns([1, 1])
 
-    # sequence column 1,2,3,...
-    dbg.insert(0, "No.", range(1, len(dbg) + 1))
+    with left:
+        st.subheader(f"Top {top_n} Countries by {metric} ({year_selected})")
+        top_df = year_df.head(top_n).copy()
+        top_df["Top Operator"] = top_df["Country"].map(top_operator_per_country)
 
-    dbg = dbg[
-        [
-            "No.",
-            "Country",
-            "Total SubCount",
-            "Total RecCount",
-            "Total Duration(min)",
-            "Total Volume(KB)",
-            "Total Volume(GB)",
-            "Total GPRS Amount(USD)",
-            "Total Voice Amount(USD)",
-            "ISO3",
-            "Top Operator",
+        fig_bar = px.bar(
+            top_df,
+            x="Country",
+            y=metric,
+            hover_data={"Top Operator": True, metric: ":,.4f"},
+            category_orders={"Country": top_df["Country"].tolist()},
+            title=f"Top {top_n} Countries by {metric} ({year_selected})",
+        )
+        fig_bar.update_layout(xaxis_tickangle=-45, template="plotly_white")
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+    with right:
+        st.subheader(f"World Map of {metric} ({year_selected})")
+        map_df = year_df[year_df["ISO3"].notna()].copy()
+        map_df["Top Operator"] = map_df["Country"].map(top_operator_per_country)
+
+        fig_map = px.choropleth(
+            map_df,
+            locations="ISO3",
+            color=metric,
+            hover_data={
+                "Country": True,
+                metric: ":,.4f",
+                "Top Operator": True,
+                "ISO3": False
+            },
+            color_continuous_scale="Blues",
+            title=f"World Map: {metric} ({year_selected})",
+        )
+        fig_map.update_layout(
+            template="plotly_white",
+            geo=dict(showframe=False, showcoastlines=True, projection_type="natural earth")
+        )
+        st.plotly_chart(fig_map, use_container_width=True)
+
+    with st.expander("Debug: Values Used for Ranking (Top 50)"):
+        dbg = year_df.head(50).copy()
+        dbg["Top Operator"] = dbg["Country"].map(top_operator_per_country)
+        dbg.insert(0, "No.", range(1, len(dbg) + 1))
+
+        dbg = dbg[
+            [
+                "No.",
+                "Country",
+                "Total SubCount",
+                "Total RecCount",
+                "Total Duration(min)",
+                "Total Volume(KB)",
+                "Total Volume(GB)",
+                "Total GPRS Amount(USD)",
+                "Total Voice Amount(USD)",
+                "ISO3",
+                "Top Operator",
+            ]
         ]
-    ]
+        st.dataframe(dbg, use_container_width=True, hide_index=True)
 
-    st.dataframe(dbg, use_container_width=True, hide_index=True)
+    st.subheader("Download Charts")
+
+    safe_metric = re.sub(r"[^A-Za-z0-9_]+", "_", str(metric)).strip("_")
+    bar_html = fig_bar.to_html(full_html=True, include_plotlyjs="cdn").encode("utf-8")
+    map_html = fig_map.to_html(full_html=True, include_plotlyjs="cdn").encode("utf-8")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button(
+            "Download Bar Chart (HTML)",
+            data=bar_html,
+            file_name=f"bar_{safe_metric}_{year_selected}.html",
+            mime="text/html",
+        )
+    with c2:
+        st.download_button(
+            "Download Map (HTML)",
+            data=map_html,
+            file_name=f"map_{safe_metric}_{year_selected}.html",
+            mime="text/html",
+        )
 
 
 # ============================================================
-# Download charts (HTML only)
+# 2) DATA PLAN USAGE BY AGE GROUP
 # ============================================================
-st.subheader("⬇️ Download Charts")
 
-safe_metric = re.sub(r"[^A-Za-z0-9_]+", "_", str(metric)).strip("_")
+def run_data_plan():
+    st.title("Data Plan Usage by Age Group")
 
-bar_html = fig_bar.to_html(full_html=True, include_plotlyjs="cdn").encode("utf-8")
-map_html = fig_map.to_html(full_html=True, include_plotlyjs="cdn").encode("utf-8")
+    # ---------- helpers ----------
+    def parse_year_from_any_date(x):
+        if x is None or str(x).strip() == "" or str(x).lower() in ["nan", "none"]:
+            return None
+        s = str(x).strip()
+        try:
+            dt = pd.to_datetime(s, errors="coerce")
+            if pd.notna(dt):
+                return int(dt.year)
+        except Exception:
+            pass
+        m = re.search(r"(19\d{2}|20\d{2})", s)
+        return int(m.group(1)) if m else None
 
-c1, c2 = st.columns(2)
+    def calculate_age(dob_value):
+        birth_year = parse_year_from_any_date(dob_value)
+        if not birth_year:
+            return 0
+        current_year = pd.Timestamp.today().year
+        age = current_year - birth_year
+        return int(age) if age >= 0 else 0
 
-with c1:
-    st.download_button(
-        "📊 Bar (HTML)",
-        data=bar_html,
-        file_name=f"bar_{safe_metric}_{year_selected}.html",
-        mime="text/html",
+    def get_age_group(age: int) -> str:
+        if age < 18:
+            return "Under 18"
+        if age < 25:
+            return "18-24"
+        if age < 35:
+            return "25-34"
+        if age < 45:
+            return "35-44"
+        if age < 55:
+            return "45-54"
+        return "55+"
+
+    def norm_id(x):
+        if x is None:
+            return ""
+        s = str(x).strip()
+        if s.lower() in ["nan", "none"]:
+            return ""
+        return s
+
+    def remove_975_prefix(s):
+        s = norm_id(s)
+        return s[3:] if s.startswith("975") else s
+
+    def pick_first_existing_col(df, candidates):
+        for c in candidates:
+            if c in df.columns:
+                return c
+        return None
+
+    def read_uploaded_table(file) -> pd.DataFrame:
+        name = file.name.lower()
+        if name.endswith(".csv"):
+            return pd.read_csv(file)
+        if name.endswith(".xlsx") or name.endswith(".xls"):
+            return pd.read_excel(file)
+        raise ValueError("Unsupported file type")
+
+    # Plan standardization
+    def clean_plan_name(x):
+        if x is None:
+            return ""
+        s = str(x).strip()
+        if s.lower() in ["nan", "none"]:
+            return ""
+        s = s.replace("_", " ")
+        s = re.sub(r"\s+", " ", s).strip()
+        s = s.title()
+        return s
+
+    def standardize_plan(x):
+        s = clean_plan_name(x)
+        plan_map = {
+            "Newpackage": "New Package",
+            "New Package": "New Package",
+        }
+        return plan_map.get(s, s)
+
+    # ---------- upload ----------
+    st.sidebar.header("Upload (Data Plan)")
+    customer_file = st.sidebar.file_uploader(
+        "Upload Customer Data (CSV/Excel)",
+        type=["csv", "xlsx", "xls"],
+        key="customer_upload",
+    )
+    recharge_files = st.sidebar.file_uploader(
+        "Upload Recharge Data (multiple files)",
+        type=["csv", "xlsx", "xls"],
+        accept_multiple_files=True,
+        key="recharge_upload",
     )
 
-with c2:
-    st.download_button(
-        "🗺️ Map (HTML)",
-        data=map_html,
-        file_name=f"map_{safe_metric}_{year_selected}.html",
-        mime="text/html",
+    if not customer_file or not recharge_files:
+        st.info("Upload BOTH customer data and recharge data to begin.")
+        st.stop()
+
+    # ---------- load ----------
+    try:
+        customer_df = read_uploaded_table(customer_file)
+    except Exception as e:
+        st.error(f"Failed to read customer file: {e}")
+        st.stop()
+
+    recharge_parts = []
+    source_map = {}
+    for f in recharge_files:
+        try:
+            df = read_uploaded_table(f)
+            source_name = f.name.rsplit(".", 1)[0]
+            df["source"] = source_name
+            recharge_parts.append(df)
+            source_map[source_name] = df
+        except Exception as e:
+            st.warning(f"Skipped {f.name} (could not read): {e}")
+
+    if not recharge_parts:
+        st.error("No recharge files could be read.")
+        st.stop()
+
+    recharge_df = pd.concat(recharge_parts, ignore_index=True)
+
+    # ---------- key columns ----------
+    service_id_col = pick_first_existing_col(customer_df, ["Service_ID", "SERVICE_ID", "service_id"])
+    dob_col = pick_first_existing_col(customer_df, ["date_of_birth", "Date_of_Birth", "DATE_OF_BIRTH", "DOB", "dob"])
+    plan_col = pick_first_existing_col(customer_df, ["rate_plan_name", "Rate_Plan_Name", "RATE_PLAN_NAME", "plan", "Plan"])
+
+    recharge_num_col = pick_first_existing_col(recharge_df, ["RECHARGE_NUMBER", "Recharge_Number", "recharge_number"])
+    amount_col = pick_first_existing_col(recharge_df, ["Recharge_Amount(Nu)", "Recharge_Amount", "recharge_amount", "Amount", "amount"])
+
+    missing_cols = []
+    if not service_id_col:
+        missing_cols.append("Service_ID (customer)")
+    if not dob_col:
+        missing_cols.append("date_of_birth (customer)")
+    if not plan_col:
+        missing_cols.append("rate_plan_name (customer)")
+    if not recharge_num_col:
+        missing_cols.append("RECHARGE_NUMBER (recharge)")
+    if not amount_col:
+        missing_cols.append("Recharge_Amount(Nu) (recharge)")
+
+    if missing_cols:
+        st.error("Missing required columns:\n- " + "\n- ".join(missing_cols))
+        st.write("Customer columns:", list(customer_df.columns))
+        st.write("Recharge columns:", list(recharge_df.columns))
+        st.stop()
+
+    # standardize plan names for cleaner display
+    customer_df[plan_col] = customer_df[plan_col].apply(standardize_plan)
+
+    # ---------- build customer map ----------
+    customer_map = {}
+    for _, r in customer_df.iterrows():
+        sid = norm_id(r.get(service_id_col))
+        if not sid:
+            continue
+
+        age = calculate_age(r.get(dob_col))
+        age_group = get_age_group(age)
+        plan = standardize_plan(r.get(plan_col))
+
+        info = {"age": age, "ageGroup": age_group, "plan": plan if plan is not None else ""}
+        customer_map[sid] = info
+        customer_map["975" + sid] = info
+
+    # ---------- aggregate ----------
+    matched = 0
+    age_stats = {}
+    plan_stats = {}
+
+    for _, rr in recharge_df.iterrows():
+        cust_id_raw = norm_id(rr.get(recharge_num_col))
+        if not cust_id_raw:
+            continue
+
+        cust_id_no975 = remove_975_prefix(cust_id_raw)
+        customer = customer_map.get(cust_id_raw) or customer_map.get(cust_id_no975)
+        if not customer:
+            continue
+
+        matched += 1
+        amt = rr.get(amount_col)
+        try:
+            amount = float(amt) if amt is not None and str(amt).strip() != "" else 0.0
+        except Exception:
+            amount = 0.0
+
+        ag = customer["ageGroup"]
+        pl = standardize_plan(customer["plan"]) if customer["plan"] else "Unknown plan"
+
+        if ag not in age_stats:
+            age_stats[ag] = {"ageGroup": ag, "totalRecharges": 0, "totalAmount": 0.0, "users": set()}
+        age_stats[ag]["totalRecharges"] += 1
+        age_stats[ag]["totalAmount"] += amount
+        age_stats[ag]["users"].add(cust_id_no975)
+
+        key = (ag, pl)
+        plan_stats[key] = plan_stats.get(key, 0) + 1
+
+    order = ["Under 18", "18-24", "25-34", "35-44", "45-54", "55+"]
+
+    age_group_df = pd.DataFrame([
+        {
+            "Age Group": v["ageGroup"],
+            "Users": len(v["users"]),
+            "Total Recharges": v["totalRecharges"],
+            "Total Amount (Nu)": round(v["totalAmount"], 2),
+            "Avg Amount (Nu)": round((v["totalAmount"] / v["totalRecharges"]) if v["totalRecharges"] else 0, 2),
+        }
+        for v in age_stats.values()
+    ])
+    if not age_group_df.empty:
+        age_group_df["__ord"] = age_group_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
+        age_group_df = age_group_df.sort_values("__ord").drop(columns="__ord")
+
+    plan_by_age_df = pd.DataFrame([
+        {"Age Group": ag, "Plan": pl, "Recharge Count": cnt}
+        for (ag, pl), cnt in plan_stats.items()
+    ])
+    if not plan_by_age_df.empty:
+        plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
+        plan_by_age_df = plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False]).drop(columns="__ord")
+
+    # source analysis
+    source_rows = []
+    for src, df in source_map.items():
+        a = pd.to_numeric(df.get(amount_col), errors="coerce").fillna(0).sum() if amount_col in df.columns else 0
+        source_rows.append({
+            "Source": src,
+            "Total Recharges": len(df),
+            "Total Amount (Nu)": float(a),
+            "Avg Amount (Nu)": float(a / len(df)) if len(df) else 0.0
+        })
+    source_df = pd.DataFrame(source_rows).sort_values("Total Amount (Nu)", ascending=False)
+
+    # ---------- metrics ----------
+    total_rev = pd.to_numeric(recharge_df[amount_col], errors="coerce").fillna(0).sum()
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Customers", f"{len(customer_df):,}")
+    m2.metric("Total Recharges", f"{len(recharge_df):,}")
+    m3.metric("Total Revenue (Nu)", f"{total_rev:,.2f}")
+    m4.metric("Avg Recharge (Nu)", f"{(total_rev/len(recharge_df) if len(recharge_df) else 0):,.2f}")
+
+    with st.expander("Debug: Matching Information", expanded=False):
+        st.write(f"Matched recharges: **{matched:,}** / {len(recharge_df):,}")
+        if matched == 0:
+            st.error("No matches found. Check if customer Service_ID matches recharge RECHARGE_NUMBER (with/without 975).")
+
+    # ---------- tabs ----------
+    tab_overview, tab_source, tab_age, tab_plans = st.tabs(
+        ["Overview", "Source Analysis", "Age Group Analysis", "Plan Distribution"]
     )
+
+    with tab_overview:
+        st.write("Customer preview")
+        st.dataframe(customer_df.head(20), use_container_width=True)
+        st.write("Recharge preview")
+        st.dataframe(recharge_df.head(20), use_container_width=True)
+
+    with tab_source:
+        st.subheader("Revenue by Source Area")
+        st.dataframe(source_df, use_container_width=True)
+
+        if not source_df.empty:
+            fig_src_amt = px.bar(
+                source_df,
+                x="Source",
+                y="Total Amount (Nu)",
+                title="Total Revenue (Nu) by Source Area",
+                labels={"Source": "Source Area", "Total Amount (Nu)": "Total Revenue (Nu)"},
+            )
+            fig_src_amt.update_layout(template="plotly_white", xaxis_tickangle=-45)
+            st.plotly_chart(fig_src_amt, use_container_width=True)
+
+            fig_src_cnt = px.bar(
+                source_df,
+                x="Source",
+                y="Total Recharges",
+                title="Total Recharges by Source Area",
+                labels={"Source": "Source Area", "Total Recharges": "Total Recharges"},
+            )
+            fig_src_cnt.update_layout(template="plotly_white", xaxis_tickangle=-45)
+            st.plotly_chart(fig_src_cnt, use_container_width=True)
+
+    with tab_age:
+        st.subheader("Age Group Statistics")
+        if age_group_df.empty:
+            st.warning("No age-group stats (likely no matches). Check Debug.")
+        else:
+            st.dataframe(age_group_df, use_container_width=True)
+
+            fig_age_rech = px.bar(
+                age_group_df,
+                x="Age Group",
+                y="Total Recharges",
+                title="Total Recharges by Age Group",
+                labels={"Age Group": "Age Group", "Total Recharges": "Total Recharges"},
+                category_orders={"Age Group": order},
+            )
+            fig_age_rech.update_layout(template="plotly_white")
+            st.plotly_chart(fig_age_rech, use_container_width=True)
+
+            fig_age_amt = px.bar(
+                age_group_df,
+                x="Age Group",
+                y="Total Amount (Nu)",
+                title="Total Revenue (Nu) by Age Group",
+                labels={"Age Group": "Age Group", "Total Amount (Nu)": "Total Revenue (Nu)"},
+                category_orders={"Age Group": order},
+            )
+            fig_age_amt.update_layout(template="plotly_white")
+            st.plotly_chart(fig_age_amt, use_container_width=True)
+
+    with tab_plans:
+        st.subheader("Plan Usage Distribution by Age Group")
+        if plan_by_age_df.empty:
+            st.warning("No plan distribution data (likely no matches). Check Debug.")
+        else:
+            st.dataframe(plan_by_age_df, use_container_width=True)
+
+            popular = (
+                plan_by_age_df.groupby("Plan", as_index=False)["Recharge Count"].sum()
+                .sort_values("Recharge Count", ascending=False)
+                .head(25)
+            )
+
+            st.subheader("Most Popular Plans (Overall)")
+            st.dataframe(popular, use_container_width=True)
+
+            fig_pop = px.bar(
+                popular,
+                x="Plan",
+                y="Recharge Count",
+                title="Top 25 Most Popular Plans by Recharge Count",
+                labels={"Plan": "Plan Name", "Recharge Count": "Recharge Count"},
+            )
+            fig_pop.update_layout(template="plotly_white", xaxis_tickangle=-45)
+            st.plotly_chart(fig_pop, use_container_width=True)
+
+
+# ============================================================
+# Router
+# ============================================================
+if analysis.startswith("1)"):
+    run_roaming()
+else:
+    run_data_plan()
