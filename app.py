@@ -71,7 +71,6 @@ def infer_country_from_network_id(network_id: str):
         return None
     nid = str(network_id).strip().upper()
     prefix = nid[:3]
-
     prefix_map = {
         "ARG": "Argentina", "AUS": "Australia", "ESP": "Spain", "GBR": "United Kingdom",
         "HKG": "Hong Kong", "HRV": "Croatia", "IND": "India", "IRL": "Ireland",
@@ -147,7 +146,6 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     for c in df.columns:
         lc = norm(c)
-
         if "partnername" in lc:
             rename_map[c] = "Partner Name"
             continue
@@ -161,7 +159,6 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
         if lc == "totalreccount" or ("total" in lc and "reccount" in lc):
             total_rec_col = c
             continue
-
         if lc == "totalvolume(kb)" or ("total" in lc and "volume(kb)" in lc):
             total_volume_col = c
             continue
@@ -194,7 +191,6 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     df["Total Duration(min)"] = pd.to_numeric(df[total_duration_col], errors="coerce").fillna(0) if total_duration_col else 0.0
     df["Total GPRS Amount(USD)"] = pd.to_numeric(df[total_gprs_col], errors="coerce").fillna(0) if total_gprs_col else 0.0
     df["Total Voice Amount(USD)"] = pd.to_numeric(df[total_voice_col], errors="coerce").fillna(0) if total_voice_col else 0.0
-
     df["Total Volume(GB)"] = df["Total Volume(KB)"] / (1024 * 1024)
     return df
 
@@ -442,7 +438,6 @@ def run_roaming():
         dbg = year_df.head(50).copy()
         dbg["Top Operator"] = dbg["Country"].map(top_operator_per_country)
         dbg.insert(0, "No.", range(1, len(dbg) + 1))
-
         dbg = dbg[
             [
                 "No.",
@@ -484,7 +479,7 @@ def run_roaming():
 
 
 # ============================================================
-# 2) DATA PLAN USAGE BY AGE GROUP (FAST VERSION)
+# 2) DATA PLAN USAGE BY AGE GROUP - OVERVIEW TAB (METRICS ONLY)
 # ============================================================
 
 @st.cache_data(show_spinner=False)
@@ -541,7 +536,6 @@ def run_data_plan():
                 return c
         return None
 
-    # Plan standardization (same as your original)
     def clean_plan_name(x):
         if x is None:
             return ""
@@ -587,10 +581,10 @@ def run_data_plan():
         for f in recharge_files:
             try:
                 df = read_uploaded_table_cached(f.name, f.getvalue())
-                source_name = f.name.rsplit(".", 1)[0]
-                df["source"] = source_name
+                src = f.name.rsplit(".", 1)[0]
+                df["source"] = src
                 recharge_parts.append(df)
-                source_map[source_name] = df
+                source_map[src] = df
             except Exception as e:
                 st.warning(f"Skipped {f.name} (could not read): {e}")
 
@@ -627,7 +621,6 @@ def run_data_plan():
         st.stop()
 
     with st.spinner("Processing and matching..."):
-        # Prepare customer table
         cust = customer_df[[service_id_col, dob_col, plan_col]].copy()
         cust["sid"] = cust[service_id_col].astype(str).str.strip()
         cust = cust[~cust["sid"].str.lower().isin(["nan", "none", ""])].copy()
@@ -636,20 +629,17 @@ def run_data_plan():
         cust["Age"] = cust[dob_col].apply(calculate_age)
         cust["Age Group"] = cust["Age"].apply(get_age_group)
 
-        # Prepare recharge table
         rech = recharge_df[[recharge_num_col, amount_col, "source"]].copy()
         rech["rid"] = rech[recharge_num_col].astype(str).str.strip()
         rech = rech[~rech["rid"].str.lower().isin(["nan", "none", ""])].copy()
         rech["rid_no975"] = rech["rid"].str.replace(r"^975", "", regex=True)
         rech["Amount"] = pd.to_numeric(rech[amount_col], errors="coerce").fillna(0.0)
 
-        # Match like your original logic (with/without 975)
         merged = rech.merge(cust[["sid", "Age Group", "Plan"]], left_on="rid_no975", right_on="sid", how="inner")
         matched = len(merged)
 
         order = ["Under 18", "18-24", "25-34", "35-44", "45-54", "55+"]
 
-        # Age group summary (same columns)
         age_group_df = (
             merged.groupby("Age Group", as_index=False)
             .agg(
@@ -660,24 +650,21 @@ def run_data_plan():
                 }
             )
         )
-        age_group_df["Total Amount (Nu)"] = age_group_df["Total Amount (Nu)"].round(2)
-        age_group_df["Avg Amount (Nu)"] = (
-            age_group_df["Total Amount (Nu)"] / age_group_df["Total Recharges"]
-        ).round(2)
+        if not age_group_df.empty:
+            age_group_df["Total Amount (Nu)"] = age_group_df["Total Amount (Nu)"].round(2)
+            age_group_df["Avg Amount (Nu)"] = (age_group_df["Total Amount (Nu)"] / age_group_df["Total Recharges"]).round(2)
+            age_group_df["__ord"] = age_group_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
+            age_group_df = age_group_df.sort_values("__ord").drop(columns="__ord")
 
-        age_group_df["__ord"] = age_group_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
-        age_group_df = age_group_df.sort_values("__ord").drop(columns="__ord")
-
-        # Plan distribution (same columns)
         merged["Plan"] = merged["Plan"].replace("", "Unknown plan")
         plan_by_age_df = (
             merged.groupby(["Age Group", "Plan"], as_index=False)
             .agg(**{"Recharge Count": ("Plan", "size")})
         )
-        plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
-        plan_by_age_df = plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False]).drop(columns="__ord")
+        if not plan_by_age_df.empty:
+            plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
+            plan_by_age_df = plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False]).drop(columns="__ord")
 
-        # Source analysis (same as yours: totals per file)
         source_rows = []
         for src, df in source_map.items():
             a = pd.to_numeric(df.get(amount_col), errors="coerce").fillna(0).sum() if amount_col in df.columns else 0
@@ -689,20 +676,7 @@ def run_data_plan():
             })
         source_df = pd.DataFrame(source_rows).sort_values("Total Amount (Nu)", ascending=False)
 
-        # Metrics (same as yours)
         total_rev = pd.to_numeric(recharge_df[amount_col], errors="coerce").fillna(0).sum()
-
-    # ---------- metrics ----------
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Total Customers", f"{len(customer_df):,}")
-    m2.metric("Total Recharges", f"{len(recharge_df):,}")
-    m3.metric("Total Revenue (Nu)", f"{total_rev:,.2f}")
-    m4.metric("Avg Recharge (Nu)", f"{(total_rev/len(recharge_df) if len(recharge_df) else 0):,.2f}")
-
-    with st.expander("Debug: Matching Information", expanded=False):
-        st.write(f"Matched recharges: **{matched:,}** / {len(recharge_df):,}")
-        if matched == 0:
-            st.error("No matches found. Check if customer Service_ID matches recharge RECHARGE_NUMBER (with/without 975).")
 
     # ---------- tabs ----------
     tab_overview, tab_source, tab_age, tab_plans = st.tabs(
@@ -710,14 +684,21 @@ def run_data_plan():
     )
 
     with tab_overview:
-        st.write("Customer preview")
-        st.dataframe(customer_df.head(20), use_container_width=True)
-        st.write("Recharge preview")
-        st.dataframe(recharge_df.head(20), use_container_width=True)
+        # ✅ Overview: ONLY 4 metrics (like your screenshot)
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Total Customers", f"{len(customer_df):,}")
+        m2.metric("Total Recharges", f"{len(recharge_df):,}")
+        m3.metric("Total Revenue (Nu)", f"{total_rev:,.2f}")
+        m4.metric("Avg Recharge (Nu)", f"{(total_rev/len(recharge_df) if len(recharge_df) else 0):,.2f}")
+
+        with st.expander("Debug: Matching Information", expanded=False):
+            st.write(f"Matched recharges: **{matched:,}** / {len(recharge_df):,}")
+            if matched == 0:
+                st.error("No matches found. Check if customer Service_ID matches recharge RECHARGE_NUMBER (with/without 975).")
 
     with tab_source:
         st.subheader("Revenue by Source Area")
-        st.dataframe(source_df, use_container_width=True)
+        st.dataframe(source_df.reset_index(drop=True), use_container_width=True, hide_index=True)
 
         if not source_df.empty:
             fig_src_amt = px.bar(
@@ -745,7 +726,7 @@ def run_data_plan():
         if age_group_df.empty:
             st.warning("No age-group stats (likely no matches). Check Debug.")
         else:
-            st.dataframe(age_group_df, use_container_width=True)
+            st.dataframe(age_group_df.reset_index(drop=True), use_container_width=True, hide_index=True)
 
             fig_age_rech = px.bar(
                 age_group_df,
@@ -774,7 +755,7 @@ def run_data_plan():
         if plan_by_age_df.empty:
             st.warning("No plan distribution data (likely no matches). Check Debug.")
         else:
-            st.dataframe(plan_by_age_df, use_container_width=True)
+            st.dataframe(plan_by_age_df.reset_index(drop=True), use_container_width=True, hide_index=True)
 
             popular = (
                 plan_by_age_df.groupby("Plan", as_index=False)["Recharge Count"].sum()
@@ -783,7 +764,7 @@ def run_data_plan():
             )
 
             st.subheader("Most Popular Plans (Overall)")
-            st.dataframe(popular, use_container_width=True)
+            st.dataframe(popular.reset_index(drop=True), use_container_width=True, hide_index=True)
 
             fig_pop = px.bar(
                 popular,
