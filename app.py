@@ -7,14 +7,8 @@ import streamlit as st
 import plotly.express as px
 import pycountry
 
-# ============================================================
-# App settings
-# ============================================================
 st.set_page_config(page_title="TashiCell Analytics Dashboard", layout="wide")
 
-# ============================================================
-# Sidebar navigation
-# ============================================================
 analysis = st.sidebar.selectbox(
     "Select analysis",
     [
@@ -22,10 +16,6 @@ analysis = st.sidebar.selectbox(
         "2) Data Plan Usage by Age Group",
     ],
 )
-
-# ============================================================
-# 1) ROAMING USAGE
-# ============================================================
 
 MAPPING_PATH = "mapping/network_to_country.csv"
 PARTNER_MAPPING_PATH = "mapping/partner_to_country.csv"
@@ -478,10 +468,6 @@ def run_roaming():
         )
 
 
-# ============================================================
-# 2) DATA PLAN USAGE BY AGE GROUP - OVERVIEW TAB (METRICS ONLY)
-# ============================================================
-
 @st.cache_data(show_spinner=False)
 def read_uploaded_table_cached(file_name: str, file_bytes: bytes) -> pd.DataFrame:
     name = file_name.lower()
@@ -495,7 +481,6 @@ def read_uploaded_table_cached(file_name: str, file_bytes: bytes) -> pd.DataFram
 def run_data_plan():
     st.title("Data Plan Usage by Age Group")
 
-    # ---------- helpers ----------
     def parse_year_from_any_date(x):
         if x is None or str(x).strip() == "" or str(x).lower() in ["nan", "none"]:
             return None
@@ -555,7 +540,6 @@ def run_data_plan():
         }
         return plan_map.get(s, s)
 
-    # ---------- upload ----------
     st.sidebar.header("Upload (Data Plan)")
     customer_file = st.sidebar.file_uploader(
         "Upload Customer Data (CSV/Excel)",
@@ -594,7 +578,6 @@ def run_data_plan():
 
         recharge_df = pd.concat(recharge_parts, ignore_index=True)
 
-    # ---------- key columns ----------
     service_id_col = pick_first_existing_col(customer_df, ["Service_ID", "SERVICE_ID", "service_id"])
     dob_col = pick_first_existing_col(customer_df, ["date_of_birth", "Date_of_Birth", "DATE_OF_BIRTH", "DOB", "dob"])
     plan_col = pick_first_existing_col(customer_df, ["rate_plan_name", "Rate_Plan_Name", "RATE_PLAN_NAME", "plan", "Plan"])
@@ -678,13 +661,11 @@ def run_data_plan():
 
         total_rev = pd.to_numeric(recharge_df[amount_col], errors="coerce").fillna(0).sum()
 
-    # ---------- tabs ----------
     tab_overview, tab_source, tab_age, tab_plans = st.tabs(
         ["Overview", "Source Analysis", "Age Group Analysis", "Plan Distribution"]
     )
 
     with tab_overview:
-        # ✅ Overview: ONLY 4 metrics (like your screenshot)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Total Customers", f"{len(customer_df):,}")
         m2.metric("Total Recharges", f"{len(recharge_df):,}")
@@ -777,9 +758,6 @@ def run_data_plan():
             st.plotly_chart(fig_pop, use_container_width=True)
 
 
-# ============================================================
-# Router
-# ============================================================
 if analysis.startswith("1)"):
     run_roaming()
 else:
