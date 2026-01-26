@@ -78,6 +78,28 @@ def run_data_plan():
         }
         return plan_map.get(s, s)
 
+    # -----------------------------
+    # Helper: add labels on TOP of bars
+    # -----------------------------
+    def add_bar_labels(fig, kind="count"):
+        """
+        kind:
+          - "count" -> 1,234 formatting
+          - "money" -> Nu 1,234.56 formatting
+        """
+        if kind == "money":
+            fig.update_traces(textposition="outside", texttemplate="Nu %{text:,.2f}")
+        else:
+            fig.update_traces(textposition="outside", texttemplate="%{text:,}")
+
+        # Give space so labels don't get cut off
+        fig.update_layout(
+            uniformtext_minsize=8,
+            uniformtext_mode="hide",
+            margin=dict(t=80)
+        )
+        return fig
+
     st.sidebar.header("Upload (Data Plan)")
     customer_file = st.sidebar.file_uploader(
         "Upload Customer Data (CSV/Excel)",
@@ -226,8 +248,10 @@ def run_data_plan():
                 y="Total Amount (Nu)",
                 title="Total Revenue (Nu) by Source Area",
                 labels={"Source": "Source Area", "Total Amount (Nu)": "Total Revenue (Nu)"},
+                text="Total Amount (Nu)"
             )
             fig_src_amt.update_layout(template="plotly_white", xaxis_tickangle=-45)
+            add_bar_labels(fig_src_amt, kind="money")
             st.plotly_chart(fig_src_amt, use_container_width=True)
 
             fig_src_cnt = px.bar(
@@ -236,8 +260,10 @@ def run_data_plan():
                 y="Total Recharges",
                 title="Total Recharges by Source Area",
                 labels={"Source": "Source Area", "Total Recharges": "Total Recharges"},
+                text="Total Recharges"
             )
             fig_src_cnt.update_layout(template="plotly_white", xaxis_tickangle=-45)
+            add_bar_labels(fig_src_cnt, kind="count")
             st.plotly_chart(fig_src_cnt, use_container_width=True)
 
     with tab_age:
@@ -254,8 +280,10 @@ def run_data_plan():
                 title="Total Recharges by Age Group",
                 labels={"Age Group": "Age Group", "Total Recharges": "Total Recharges"},
                 category_orders={"Age Group": order},
+                text="Total Recharges"
             )
             fig_age_rech.update_layout(template="plotly_white")
+            add_bar_labels(fig_age_rech, kind="count")
             st.plotly_chart(fig_age_rech, use_container_width=True)
 
             fig_age_amt = px.bar(
@@ -265,8 +293,10 @@ def run_data_plan():
                 title="Total Revenue (Nu) by Age Group",
                 labels={"Age Group": "Age Group", "Total Amount (Nu)": "Total Revenue (Nu)"},
                 category_orders={"Age Group": order},
+                text="Total Amount (Nu)"
             )
             fig_age_amt.update_layout(template="plotly_white")
+            add_bar_labels(fig_age_amt, kind="money")
             st.plotly_chart(fig_age_amt, use_container_width=True)
 
     with tab_plans:
@@ -291,6 +321,8 @@ def run_data_plan():
                 y="Recharge Count",
                 title="Top 25 Most Popular Plans by Recharge Count",
                 labels={"Plan": "Plan Name", "Recharge Count": "Recharge Count"},
+                text="Recharge Count"
             )
             fig_pop.update_layout(template="plotly_white", xaxis_tickangle=-45)
+            add_bar_labels(fig_pop, kind="count")
             st.plotly_chart(fig_pop, use_container_width=True)
