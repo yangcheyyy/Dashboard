@@ -391,7 +391,7 @@ def _reset_compare_uploader():
 # Main Page
 # =========================
 def run_roaming():
-    # ✅ Fix: increase top padding so title is not cut (Streamlit Cloud + wide layout)
+
     st.markdown(
         """
         <style>
@@ -456,7 +456,7 @@ def run_roaming():
     ]
 
     # ==========================================================
-    # ✅ Compare Mode (NO main "Roaming Data Usage by Country" title)
+    # Compare Mode 
     # ==========================================================
     if compare_files:
         metric = st.session_state.get("metric_normal_mode", "Total Volume(GB)")
@@ -494,7 +494,7 @@ def run_roaming():
             st.error("All countries are missing in compare files after mapping.")
             st.stop()
 
-        # ✅ MonthLabel -> Month (so chart shows Month, not MonthLabel)
+     
         cmp_ok["Month"] = cmp_ok["Month"].astype(str).str.strip()
         cmp_ok["MonthNum"] = cmp_ok["Month"].apply(_month_sort_key)
         cmp_ok["Month"] = cmp_ok["MonthNum"].apply(month_label_from_num)
@@ -533,12 +533,12 @@ def run_roaming():
         st.stop()
 
     # ==========================================================
-    # ✅ Normal Mode (SHOW title only here)
+    # Normal Mode 
     # ==========================================================
     st.markdown(
         """
         <div class="title-row">
-          <div class="title-icon">📶</div>
+          <div class="title-icon"></div>
           <div class="title-text">Roaming Data Usage by Country</div>
         </div>
         """,
@@ -627,7 +627,7 @@ def run_roaming():
     left, right = st.columns([1, 1])
 
     with left:
-        st.markdown(f"### 🏆 Top {top_n} Countries ({metric}) - {year_selected}")
+        st.markdown(f"### Top {top_n} Countries ({metric}) - {year_selected}")
         top_df = year_df.head(top_n).copy()
         top_df["Top Operator"] = top_df["Country"].map(top_operator_per_country)
 
@@ -650,7 +650,7 @@ def run_roaming():
         st.plotly_chart(fig_bar, use_container_width=True)
 
     with right:
-        st.markdown(f"### 🗺️ World Map ({metric}) - {year_selected}")
+        st.markdown(f"###  World Map ({metric}) - {year_selected}")
         map_df = year_df[year_df["ISO3"].notna()].copy()
         map_df["Top Operator"] = map_df["Country"].map(top_operator_per_country)
 
@@ -684,7 +684,7 @@ def run_roaming():
     month_usage["Month"] = month_usage["Month"].astype(str).str.strip()
     month_usage["MonthNum"] = month_usage["Month"].apply(_month_sort_key)
 
-    # ✅ MonthLabel removed: overwrite Month to be Jan/Feb/...
+
     month_usage["Month"] = month_usage["MonthNum"].apply(month_label_from_num)
 
     trend = (
