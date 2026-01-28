@@ -92,13 +92,26 @@ def run_data_plan():
         else:
             fig.update_traces(textposition="outside", texttemplate="%{text:,}")
 
-        # Give space so labels don't get cut off
         fig.update_layout(
             uniformtext_minsize=8,
             uniformtext_mode="hide",
             margin=dict(t=80)
         )
         return fig
+
+    # -----------------------------
+    # NEW: match key = last 8 digits only
+    # -----------------------------
+    def last_n_digits(x, n=8):
+        if x is None:
+            return ""
+        s = str(x).strip()
+        if s.lower() in ["nan", "none", ""]:
+            return ""
+        digits = re.sub(r"\D+", "", s)  # keep only digits
+        if len(digits) < n:
+            return ""  # not enough digits to form a reliable match
+        return digits[-n:]
 
     st.sidebar.header("Upload (Data Plan)")
     customer_file = st.sidebar.file_uploader(
@@ -165,20 +178,34 @@ def run_data_plan():
 
     with st.spinner("Processing and matching..."):
         cust = customer_df[[service_id_col, dob_col, plan_col]].copy()
-        cust["sid"] = cust[service_id_col].astype(str).str.strip()
-        cust = cust[~cust["sid"].str.lower().isin(["nan", "none", ""])].copy()
+        cust["sid_raw"] = cust[service_id_col].astype(str).str.strip()
+        cust = cust[~cust["sid_raw"].str.lower().isin(["nan", "none", ""])].copy()
 
         cust["Plan"] = cust[plan_col].apply(standardize_plan)
         cust["Age"] = cust[dob_col].apply(calculate_age)
         cust["Age Group"] = cust["Age"].apply(get_age_group)
 
+        # Match key from customer = last 8 digits
+        cust["sid_last8"] = cust["sid_raw"].apply(lambda x: last_n_digits(x, 8))
+        cust = cust[cust["sid_last8"] != ""].copy()
+
         rech = recharge_df[[recharge_num_col, amount_col, "source"]].copy()
-        rech["rid"] = rech[recharge_num_col].astype(str).str.strip()
-        rech = rech[~rech["rid"].str.lower().isin(["nan", "none", ""])].copy()
-        rech["rid_no975"] = rech["rid"].str.replace(r"^975", "", regex=True)
+        rech["rid_raw"] = rech[recharge_num_col].astype(str).str.strip()
+        rech = rech[~rech["rid_raw"].str.lower().isin(["nan", "none", ""])].copy()
+
+        # Match key from recharge = last 8 digits
+        rech["rid_last8"] = rech["rid_raw"].apply(lambda x: last_n_digits(x, 8))
+        rech = rech[rech["rid_last8"] != ""].copy()
+
         rech["Amount"] = pd.to_numeric(rech[amount_col], errors="coerce").fillna(0.0)
 
-        merged = rech.merge(cust[["sid", "Age Group", "Plan"]], left_on="rid_no975", right_on="sid", how="inner")
+        # Merge using last8 keys
+        merged = rech.merge(
+            cust[["sid_last8", "Age Group", "Plan"]],
+            left_on="rid_last8",
+            right_on="sid_last8",
+            how="inner"
+        )
         matched = len(merged)
 
         order = ["Under 18", "18-24", "25-34", "35-44", "45-54", "55+"]
@@ -186,9 +213,9 @@ def run_data_plan():
         age_group_df = (
             merged.groupby("Age Group", as_index=False)
             .agg(
-                Users=("rid_no975", "nunique"),
+                Users=("rid_last8", "nunique"),
                 **{
-                    "Total Recharges": ("rid_no975", "size"),
+                    "Total Recharges": ("rid_last8", "size"),
                     "Total Amount (Nu)": ("Amount", "sum"),
                 }
             )
@@ -208,6 +235,7 @@ def run_data_plan():
             plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
             plan_by_age_df = plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False]).drop(columns="__ord")
 
+        # Per-source summary (unchanged)
         source_rows = []
         for src, df in source_map.items():
             a = pd.to_numeric(df.get(amount_col), errors="coerce").fillna(0).sum() if amount_col in df.columns else 0
@@ -235,7 +263,9 @@ def run_data_plan():
         with st.expander("Debug: Matching Information", expanded=False):
             st.write(f"Matched recharges: **{matched:,}** / {len(recharge_df):,}")
             if matched == 0:
-                st.error("No matches found. Check if customer Service_ID matches recharge RECHARGE_NUMBER (with/without 975).")
+                st.error("No matches found. Check last-8-digit matching between Service_ID and RECHARGE_NUMBER.")
+            else:
+                st.write("Matching rule used: **last 8 digits of both IDs** (digits only).")
 
     with tab_source:
         st.subheader("Revenue by Source Area")
