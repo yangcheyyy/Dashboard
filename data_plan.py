@@ -19,6 +19,26 @@ def read_uploaded_table_cached(file_name: str, file_bytes: bytes) -> pd.DataFram
 def run_data_plan():
     st.title("Data Plan Usage by Age Group")
 
+    # -----------------------------
+    # NEW: Normalize source names so "BOB 1/2/3" => "BOB" (generic for any source)
+    # -----------------------------
+    def normalize_source_name(src: str) -> str:
+        """
+        Generic normalizer:
+        - "BOB 1", "BOB 2", "BOB 3" -> "BOB"
+        - "BNB_1" -> "BNB"
+        - "TPay-2" -> "TPay"
+        - "Digital Kidu 10" -> "Digital Kidu"
+        Leaves names without trailing numbers unchanged.
+        """
+        if src is None:
+            return "Unknown"
+        s = str(src).strip()
+        # remove trailing separator + digits at the END only
+        s = re.sub(r"[\s_\-]+(\d+)$", "", s).strip()
+        s = re.sub(r"\s+", " ", s).strip()
+        return s if s else "Unknown"
+
     def parse_year_from_any_date(x):
         if x is None or str(x).strip() == "" or str(x).lower() in ["nan", "none"]:
             return None
@@ -95,12 +115,12 @@ def run_data_plan():
         fig.update_layout(
             uniformtext_minsize=8,
             uniformtext_mode="hide",
-            margin=dict(t=80)
+            margin=dict(t=80),
         )
         return fig
 
     # -----------------------------
-    # NEW: match key = last 8 digits only
+    # Match key = last 8 digits only
     # -----------------------------
     def last_n_digits(x, n=8):
         if x is None:
@@ -134,14 +154,13 @@ def run_data_plan():
         customer_df = read_uploaded_table_cached(customer_file.name, customer_file.getvalue())
 
         recharge_parts = []
-        source_map = {}
         for f in recharge_files:
             try:
                 df = read_uploaded_table_cached(f.name, f.getvalue())
-                src = f.name.rsplit(".", 1)[0]
+                raw_src = f.name.rsplit(".", 1)[0]
+                src = normalize_source_name(raw_src)  # ✅ merges split files like "BOB 1/2/3" -> "BOB"
                 df["source"] = src
                 recharge_parts.append(df)
-                source_map[src] = df
             except Exception as e:
                 st.warning(f"Skipped {f.name} (could not read): {e}")
 
@@ -204,7 +223,7 @@ def run_data_plan():
             cust[["sid_last8", "Age Group", "Plan"]],
             left_on="rid_last8",
             right_on="sid_last8",
-            how="inner"
+            how="inner",
         )
         matched = len(merged)
 
@@ -217,7 +236,7 @@ def run_data_plan():
                 **{
                     "Total Recharges": ("rid_last8", "size"),
                     "Total Amount (Nu)": ("Amount", "sum"),
-                }
+                },
             )
         )
         if not age_group_df.empty:
@@ -235,17 +254,19 @@ def run_data_plan():
             plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(lambda x: order.index(x) if x in order else 999)
             plan_by_age_df = plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False]).drop(columns="__ord")
 
-        # Per-source summary (unchanged)
-        source_rows = []
-        for src, df in source_map.items():
-            a = pd.to_numeric(df.get(amount_col), errors="coerce").fillna(0).sum() if amount_col in df.columns else 0
-            source_rows.append({
-                "Source": src,
-                "Total Recharges": len(df),
-                "Total Amount (Nu)": float(a),
-                "Avg Amount (Nu)": float(a / len(df)) if len(df) else 0.0
-            })
-        source_df = pd.DataFrame(source_rows).sort_values("Total Amount (Nu)", ascending=False)
+        # ✅ FIXED: Per-source summary now uses normalized "source" and groups properly
+        source_df = (
+            rech.groupby("source", as_index=False)
+            .agg(
+                **{
+                    "Total Recharges": ("source", "size"),
+                    "Total Amount (Nu)": ("Amount", "sum"),
+                }
+            )
+        )
+        source_df["Total Amount (Nu)"] = source_df["Total Amount (Nu)"].round(2)
+        source_df["Avg Amount (Nu)"] = (source_df["Total Amount (Nu)"] / source_df["Total Recharges"]).round(2)
+        source_df = source_df.rename(columns={"source": "Source"}).sort_values("Total Amount (Nu)", ascending=False)
 
         total_rev = pd.to_numeric(recharge_df[amount_col], errors="coerce").fillna(0).sum()
 
@@ -266,6 +287,7 @@ def run_data_plan():
                 st.error("No matches found. Check last-8-digit matching between Service_ID and RECHARGE_NUMBER.")
             else:
                 st.write("Matching rule used: **last 8 digits of both IDs** (digits only).")
+                st.write("Source rule used: **file name normalized** (e.g., 'BOB 1/2/3' → 'BOB').")
 
     with tab_source:
         st.subheader("Revenue by Source Area")
@@ -278,7 +300,7 @@ def run_data_plan():
                 y="Total Amount (Nu)",
                 title="Total Revenue (Nu) by Source Area",
                 labels={"Source": "Source Area", "Total Amount (Nu)": "Total Revenue (Nu)"},
-                text="Total Amount (Nu)"
+                text="Total Amount (Nu)",
             )
             fig_src_amt.update_layout(template="plotly_white", xaxis_tickangle=-45)
             add_bar_labels(fig_src_amt, kind="money")
@@ -290,7 +312,7 @@ def run_data_plan():
                 y="Total Recharges",
                 title="Total Recharges by Source Area",
                 labels={"Source": "Source Area", "Total Recharges": "Total Recharges"},
-                text="Total Recharges"
+                text="Total Recharges",
             )
             fig_src_cnt.update_layout(template="plotly_white", xaxis_tickangle=-45)
             add_bar_labels(fig_src_cnt, kind="count")
@@ -310,7 +332,7 @@ def run_data_plan():
                 title="Total Recharges by Age Group",
                 labels={"Age Group": "Age Group", "Total Recharges": "Total Recharges"},
                 category_orders={"Age Group": order},
-                text="Total Recharges"
+                text="Total Recharges",
             )
             fig_age_rech.update_layout(template="plotly_white")
             add_bar_labels(fig_age_rech, kind="count")
@@ -323,7 +345,7 @@ def run_data_plan():
                 title="Total Revenue (Nu) by Age Group",
                 labels={"Age Group": "Age Group", "Total Amount (Nu)": "Total Revenue (Nu)"},
                 category_orders={"Age Group": order},
-                text="Total Amount (Nu)"
+                text="Total Amount (Nu)",
             )
             fig_age_amt.update_layout(template="plotly_white")
             add_bar_labels(fig_age_amt, kind="money")
@@ -351,7 +373,7 @@ def run_data_plan():
                 y="Recharge Count",
                 title="Top 25 Most Popular Plans by Recharge Count",
                 labels={"Plan": "Plan Name", "Recharge Count": "Recharge Count"},
-                text="Recharge Count"
+                text="Recharge Count",
             )
             fig_pop.update_layout(template="plotly_white", xaxis_tickangle=-45)
             add_bar_labels(fig_pop, kind="count")
