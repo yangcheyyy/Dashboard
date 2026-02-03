@@ -10,6 +10,14 @@ import pycountry
 MAPPING_PATH = "mapping/network_to_country.csv"
 PARTNER_MAPPING_PATH = "mapping/partner_to_country.csv"
 
+# =========================
+# Network ID standardisation (code changes / alias TADIG)
+# =========================
+NETWORK_ID_ALIASES = {
+    "THACO": "THACA",   # TrueMove old → new code
+    "THAK9": "THAWN",   # Alias TADIG → main code
+}
+
 
 # =========================
 # Helpers
@@ -122,16 +130,9 @@ def _sum_matching_cols(df: pd.DataFrame, pattern: re.Pattern) -> float:
 
 
 def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Robust standardisation that works for:
-    - "TotalVolume(KB)" style sheets, AND
-    - sheets with repeated blocks like "1st / 2nd / 3rd" where columns repeat (Volume(KB), Duration(min), etc.)
-      which pandas reads as: 'Volume(KB)', 'Volume(KB).1', 'Volume(KB).2', ...
-    """
     df = df.copy()
     df.columns = [str(c).strip().replace("\n", " ") for c in df.columns]
 
-    # Rename common identifier cols
     rename_map = {}
     for c in df.columns:
         lc = _norm(c)
@@ -141,7 +142,6 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
             rename_map[c] = "Network ID"
     df = df.rename(columns=rename_map)
 
-    # Detect TOTAL columns (if present)
     total_sub_col = None
     total_rec_col = None
     total_volume_col = None
@@ -151,8 +151,6 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     for c in df.columns:
         lc = _norm(c)
-
-        # totals
         if lc == "totalsubcount" or ("total" in lc and "subcount" in lc):
             total_sub_col = c
         elif lc == "totalreccount" or ("total" in lc and "reccount" in lc):
@@ -166,7 +164,6 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
         elif ("totalvoice" in lc and "amount" in lc) or ("totalvoiceamount" in lc):
             total_voice_col = c
 
-    # Patterns for repeated blocks (1st/2nd/3rd...) where columns repeat without "Total"
     p_subcount = re.compile(r"(?:^|[^a-z])subcount(?:$|[^a-z])")
     p_reccount = re.compile(r"(?:^|[^a-z])reccount(?:$|[^a-z])")
     p_volume_kb = re.compile(r"(?:^|[^a-z])volume\(kb\)(?:$|[^a-z])")
@@ -174,7 +171,6 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     p_gprs_amt = re.compile(r"(?:^|[^a-z])gprsamount\(usd\)(?:$|[^a-z])")
     p_voice_amt = re.compile(r"(?:^|[^a-z])voiceamount\(usd\)(?:$|[^a-z])")
 
-    # Build standardized numeric columns
     df["Total SubCount"] = (
         pd.to_numeric(df[total_sub_col], errors="coerce").fillna(0)
         if total_sub_col else _sum_matching_cols(df, p_subcount)
@@ -258,6 +254,16 @@ def parse_workbook(file_bytes: bytes, filename: str):
         ]
         if any(col not in df.columns for col in needed):
             continue
+
+        # ✅ Apply standardisation BEFORE filtering / mapping
+        df["Network ID"] = (
+            df["Network ID"]
+            .astype("string")
+            .str.strip()
+            .str.upper()
+            .replace(NETWORK_ID_ALIASES)
+            .fillna("")
+        )
 
         partner = df["Partner Name"].astype("string").str.strip().fillna("")
         network = df["Network ID"].astype("string").str.strip().fillna("")
@@ -347,7 +353,16 @@ def season_order():
 
 def _apply_country_mapping(df_in: pd.DataFrame, mapping: pd.DataFrame, pm_dict: dict) -> pd.DataFrame:
     df = df_in.copy()
-    df["Network ID"] = df["Network ID"].astype(str).str.strip()
+
+    # ✅ ensure standardised IDs also here (covers any external / compare data edge-case)
+    df["Network ID"] = (
+        df["Network ID"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .replace(NETWORK_ID_ALIASES)
+    )
+
     df = df.merge(mapping[["Network ID", "Country"]], on="Network ID", how="left")
 
     def infer_chain_row(row):
@@ -456,7 +471,7 @@ def run_roaming():
     ]
 
     # ==========================================================
-    # Compare Mode 
+    # Compare Mode
     # ==========================================================
     if compare_files:
         metric = st.session_state.get("metric_normal_mode", "Total Volume(GB)")
@@ -494,7 +509,6 @@ def run_roaming():
             st.error("All countries are missing in compare files after mapping.")
             st.stop()
 
-     
         cmp_ok["Month"] = cmp_ok["Month"].astype(str).str.strip()
         cmp_ok["MonthNum"] = cmp_ok["Month"].apply(_month_sort_key)
         cmp_ok["Month"] = cmp_ok["MonthNum"].apply(month_label_from_num)
@@ -533,7 +547,7 @@ def run_roaming():
         st.stop()
 
     # ==========================================================
-    # Normal Mode 
+    # Normal Mode
     # ==========================================================
     st.markdown(
         """
@@ -683,8 +697,6 @@ def run_roaming():
     )
     month_usage["Month"] = month_usage["Month"].astype(str).str.strip()
     month_usage["MonthNum"] = month_usage["Month"].apply(_month_sort_key)
-
-
     month_usage["Month"] = month_usage["MonthNum"].apply(month_label_from_num)
 
     trend = (
