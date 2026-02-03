@@ -114,8 +114,6 @@ def run_data_plan():
         ]
         return pick_first_existing_col(df, candidates)
 
-    month_names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-
     # -----------------------------
     # Upload section (SIDEBAR)
     # -----------------------------
@@ -156,7 +154,7 @@ def run_data_plan():
         recharge_df = pd.concat(recharge_parts, ignore_index=True)
 
     # -----------------------------
-    # Detect date column and parse dates
+    # Detect date column + build period_label (NO sidebar filter options)
     # -----------------------------
     recharge_date_col = detect_recharge_date_column(recharge_df)
     dt_series = None
@@ -165,58 +163,19 @@ def run_data_plan():
         if dt_series.notna().sum() == 0:
             dt_series = None
 
-    # -----------------------------
-    # Year/Month selector (SIDEBAR)
-    # -----------------------------
-    st.sidebar.subheader("Period (Year/Month)")
-
     if dt_series is not None:
-        temp = pd.DataFrame({"dt": dt_series}).dropna()
-        temp["year"] = temp["dt"].dt.year
-        temp["month"] = temp["dt"].dt.month
-
-        years = sorted(temp["year"].unique().tolist())
-        year_opt = ["All"] + [str(y) for y in years]
-        selected_year = st.sidebar.selectbox("Select Year", year_opt, index=0)
-
-        if selected_year == "All":
-            months = sorted(temp["month"].unique().tolist())
+        tmp_dt = pd.DataFrame({"dt": dt_series}).dropna()
+        if tmp_dt.empty:
+            period_label = "All Periods"
         else:
-            y = int(selected_year)
-            months = sorted(temp.loc[temp["year"] == y, "month"].unique().tolist())
-
-        month_opt = ["All"] + [month_names[m-1] for m in months]
-        selected_month = st.sidebar.selectbox("Select Month", month_opt, index=0)
-
-        if selected_year == "All" and selected_month == "All":
-            mn = temp["dt"].min()
-            mx = temp["dt"].max()
+            mn = tmp_dt["dt"].min()
+            mx = tmp_dt["dt"].max()
             if mn.year == mx.year and mn.month == mx.month:
                 period_label = mn.strftime("%b %Y")
             else:
                 period_label = f"{mn.strftime('%b %Y')} to {mx.strftime('%b %Y')}"
-        elif selected_year != "All" and selected_month == "All":
-            period_label = f"{selected_year}"
-        elif selected_year == "All" and selected_month != "All":
-            period_label = f"{selected_month} (all years)"
-        else:
-            period_label = f"{selected_month} {selected_year}"
     else:
-        st.sidebar.info("No valid date column found. Using manual Year/Month label.")
-        year_manual = st.sidebar.text_input("Year (optional)", value="")
-        month_manual = st.sidebar.selectbox("Month (optional)", ["All"] + month_names, index=0)
-
-        if year_manual.strip() == "" and month_manual == "All":
-            period_label = "All Periods"
-        elif year_manual.strip() != "" and month_manual == "All":
-            period_label = year_manual.strip()
-        elif year_manual.strip() == "" and month_manual != "All":
-            period_label = f"{month_manual} (year not given)"
-        else:
-            period_label = f"{month_manual} {year_manual.strip()}"
-
-        selected_year = "All"
-        selected_month = "All"
+        period_label = "All Periods"
 
     # -----------------------------
     # Column detection
@@ -253,6 +212,7 @@ def run_data_plan():
     # Build BASE tables ONCE (used by ALL tabs)
     # -----------------------------
     with st.spinner("Processing and matching..."):
+        # Customer base
         cust = customer_df[[service_id_col, dob_col, plan_col]].copy()
         cust["sid_raw"] = cust[service_id_col].astype(str).str.strip()
         cust = cust[~cust["sid_raw"].str.lower().isin(["nan", "none", ""])].copy()
@@ -262,6 +222,7 @@ def run_data_plan():
         cust["sid_last8"] = cust["sid_raw"].apply(lambda x: last_n_digits(x, 8))
         cust = cust[cust["sid_last8"] != ""].copy()
 
+        # Recharge base
         cols = [recharge_num_col, amount_col, "source"]
         if recharge_date_col:
             cols.append(recharge_date_col)
@@ -273,18 +234,9 @@ def run_data_plan():
         rech = rech[rech["rid_last8"] != ""].copy()
         rech["Amount"] = pd.to_numeric(rech[amount_col], errors="coerce").fillna(0.0)
 
-        if dt_series is not None and recharge_date_col:
+        # NOTE: NO year/month filtering anymore
+        if recharge_date_col:
             rech["_dt"] = pd.to_datetime(rech[recharge_date_col], errors="coerce", dayfirst=True)
-            rech = rech.dropna(subset=["_dt"]).copy()
-            rech["_year"] = rech["_dt"].dt.year
-            rech["_month"] = rech["_dt"].dt.month
-
-            if selected_year != "All":
-                y = int(selected_year)
-                rech = rech[rech["_year"] == y].copy()
-            if selected_month != "All":
-                m = month_names.index(selected_month) + 1
-                rech = rech[rech["_month"] == m].copy()
 
         merged_base = rech.merge(
             cust[["sid_last8", "Age", "Plan"]],
@@ -297,6 +249,7 @@ def run_data_plan():
         total_recharges = int(len(rech))
         matched = int(len(merged_base))
 
+        # Source DF
         source_df = (
             rech.groupby("source", as_index=False)
             .agg(
@@ -340,9 +293,9 @@ def run_data_plan():
                 st.write("Matching rule used: **last 8 digits of both IDs** (digits only).")
                 st.write("Source rule used: **file name normalized** (e.g., 'BOB 1/2/3' → 'BOB').")
             if recharge_date_col and dt_series is not None:
-                st.write(f"Date column detected: **{recharge_date_col}** (Year/Month filter is real, dayfirst=True)")
+                st.write(f"Date column detected: **{recharge_date_col}** (period label auto, dayfirst=True)")
             else:
-                st.write("No valid date column detected → Year/Month label is manual.")
+                st.write("No valid date column detected → period label is 'All Periods'.")
 
     # -----------------------------
     # Source tab
@@ -377,12 +330,12 @@ def run_data_plan():
             st.plotly_chart(fig_src_cnt, use_container_width=True)
 
     # -----------------------------
-    # Age Group Analysis tab (editable, no constant reload)
+    # Age Group Analysis tab (editable; Apply button; DOES NOT reread files)
     # -----------------------------
     with tab_age:
         st.subheader(f"Age Group Statistics — {period_label}")
 
-        # save ranges so they persist
+        # Save ranges so they persist
         if "age_ranges" not in st.session_state:
             st.session_state.age_ranges = {
                 "under_1": 15,
@@ -394,7 +347,7 @@ def run_data_plan():
                 "cut_7": 65,
             }
 
-        # ✅ form = prevents rerun on every +/- click
+        # ✅ form: avoids rerun on every +/- click; updates only when you press Apply
         with st.expander("Edit Age Group Ranges (click Apply to update)", expanded=False):
             with st.form("age_group_form", clear_on_submit=False):
                 c1, c2, c3, c4 = st.columns(4)
@@ -459,7 +412,7 @@ def run_data_plan():
             return age_labels[7]
 
         if merged_base.empty:
-            st.warning("No age-group stats (likely no matches, or filtered period has no matches).")
+            st.warning("No age-group stats (likely no matches).")
         else:
             tmp = merged_base.copy()
             tmp["Age Group"] = tmp["Age"].apply(get_age_group_editable)
@@ -510,7 +463,7 @@ def run_data_plan():
             st.plotly_chart(fig_age_amt, use_container_width=True)
 
     # -----------------------------
-    # Plan Distribution tab (kept fixed bins)
+    # Plan Distribution tab (fixed bins, same as before)
     # -----------------------------
     with tab_plans:
         st.subheader(f"Plan Usage Distribution by Age Group — {period_label}")
@@ -535,7 +488,7 @@ def run_data_plan():
         fixed_order = ["Under 15", "15-17", "18-24", "25-34", "35-44", "45-54", "55-65", "65+"]
 
         if merged_base.empty:
-            st.warning("No plan distribution data (likely no matches for selected period).")
+            st.warning("No plan distribution data (likely no matches).")
         else:
             tmp2 = merged_base.copy()
             tmp2["Age Group"] = tmp2["Age"].apply(get_age_group_fixed)
@@ -546,8 +499,13 @@ def run_data_plan():
                 .agg(**{"Recharge Count": ("Plan", "size")})
             )
             if not plan_by_age_df.empty:
-                plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(lambda x: fixed_order.index(x) if x in fixed_order else 999)
-                plan_by_age_df = plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False]).drop(columns="__ord")
+                plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(
+                    lambda x: fixed_order.index(x) if x in fixed_order else 999
+                )
+                plan_by_age_df = (
+                    plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False])
+                    .drop(columns="__ord")
+                )
 
             st.dataframe(plan_by_age_df.reset_index(drop=True), use_container_width=True, hide_index=True)
 
