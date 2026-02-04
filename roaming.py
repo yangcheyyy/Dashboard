@@ -18,7 +18,6 @@ NETWORK_ID_ALIASES = {
     "THAK9": "THAWN",   # Alias TADIG → main code
 }
 
-
 # =========================
 # Helpers
 # =========================
@@ -210,7 +209,7 @@ def load_mapping():
         st.error("Mapping file must have columns: Network ID, Country")
         st.stop()
 
-    m["Network ID"] = m["Network ID"].astype(str).str.strip()
+    m["Network ID"] = m["Network ID"].astype(str).str.strip().str.upper()
     m["Country"] = m["Country"].astype(str).fillna("").str.strip()
     m.loc[m["Country"].str.lower().isin(["none", "nan"]), "Country"] = ""
     return m
@@ -230,6 +229,172 @@ def load_partner_mapping():
     pm["Country"] = pm["Country"].astype(str).fillna("").str.strip()
     pm.loc[pm["Country"].str.lower().isin(["none", "nan"]), "Country"] = ""
     return pm
+
+
+# =========================
+# ✅ In-app Mapping Editor (SAVE to CSV)
+# =========================
+def _ensure_dir_for(path: str):
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
+
+
+def save_mapping_df(df: pd.DataFrame, path: str):
+    _ensure_dir_for(path)
+    df.to_csv(path, index=False)
+
+
+def upsert_mapping(mapping: pd.DataFrame, network_id: str, country: str) -> pd.DataFrame:
+    nid = str(network_id).strip().upper()
+    ctry = str(country).strip()
+    if nid == "" or ctry == "":
+        return mapping
+
+    m = mapping.copy()
+    m["Network ID"] = m["Network ID"].astype(str).str.strip().str.upper()
+    m["Country"] = m["Country"].astype(str).fillna("").str.strip()
+
+    if (m["Network ID"] == nid).any():
+        m.loc[m["Network ID"] == nid, "Country"] = ctry
+    else:
+        m = pd.concat([m, pd.DataFrame([{"Network ID": nid, "Country": ctry}])], ignore_index=True)
+
+    m = m.drop_duplicates(subset=["Network ID"], keep="last").sort_values("Network ID").reset_index(drop=True)
+    return m
+
+
+def upsert_partner_mapping(pm: pd.DataFrame, partner_name: str, country: str) -> pd.DataFrame:
+    pname = str(partner_name).strip()
+    ctry = str(country).strip()
+    if pname == "" or ctry == "":
+        return pm
+
+    p = pm.copy()
+    p["Partner Name"] = p["Partner Name"].astype(str).str.strip()
+    p["Country"] = p["Country"].astype(str).fillna("").str.strip()
+
+    mask = p["Partner Name"].str.lower() == pname.lower()
+    if mask.any():
+        p.loc[mask, "Partner Name"] = pname
+        p.loc[mask, "Country"] = ctry
+    else:
+        p = pd.concat([p, pd.DataFrame([{"Partner Name": pname, "Country": ctry}])], ignore_index=True)
+
+    p = p.drop_duplicates(subset=["Partner Name"], keep="last").sort_values("Partner Name").reset_index(drop=True)
+    return p
+
+
+def render_mapping_editor_sidebar(mapping: pd.DataFrame, partner_map: pd.DataFrame):
+    """
+    Shows UI in sidebar to add/update mappings and saves into CSV files.
+    """
+    with st.sidebar.expander("🛠️ Mapping Manager (Edit in App)", expanded=False):
+        st.caption("Add / update mapping here. It saves into CSV and refreshes automatically.")
+
+        tab1, tab2 = st.tabs(["Network ID → Country", "Partner → Country"])
+
+        with tab1:
+            nid = st.text_input("Network ID", placeholder="e.g., THAWN", key="mm_nid")
+            ctry = st.text_input("Country", placeholder="e.g., Thailand", key="mm_country")
+            col_a, col_b = st.columns([1, 1])
+            with col_a:
+                if st.button("💾 Save Network Mapping", use_container_width=True, key="mm_save_nid"):
+                    new_map = upsert_mapping(mapping, nid, ctry)
+                    save_mapping_df(new_map, MAPPING_PATH)
+                    st.success("Saved ✅ (network_to_country.csv)")
+                    st.rerun()
+            with col_b:
+                if st.button("📄 View Network Map", use_container_width=True, key="mm_view_nid"):
+                    st.dataframe(mapping, use_container_width=True, height=250)
+
+        with tab2:
+            pname = st.text_input("Partner Name", placeholder="e.g., Advanced Wireless Network Company Limited", key="mm_partner")
+            ctry2 = st.text_input("Country", placeholder="e.g., Thailand", key="mm_country2")
+            col_c, col_d = st.columns([1, 1])
+            with col_c:
+                if st.button("💾 Save Partner Mapping", use_container_width=True, key="mm_save_partner"):
+                    new_pm = upsert_partner_mapping(partner_map, pname, ctry2)
+                    save_mapping_df(new_pm, PARTNER_MAPPING_PATH)
+                    st.success("Saved ✅ (partner_to_country.csv)")
+                    st.rerun()
+            with col_d:
+                if st.button("📄 View Partner Map", use_container_width=True, key="mm_view_partner"):
+                    st.dataframe(partner_map, use_container_width=True, height=250)
+
+
+def render_missing_mappings_ui(raw_all: pd.DataFrame, mapping: pd.DataFrame, partner_map: pd.DataFrame):
+    """
+    Shows missing network IDs / partner names and lets user add them quickly.
+    """
+    with st.expander("⚠️ Missing mappings (Fix here)", expanded=False):
+        # Network IDs
+        if "Network ID" in raw_all.columns:
+            all_nids = (
+                raw_all["Network ID"].astype(str).str.strip().str.upper()
+                .replace(NETWORK_ID_ALIASES)
+            )
+            all_nids = [x for x in all_nids.unique().tolist() if x and x.lower() not in ["nan", "none"]]
+        else:
+            all_nids = []
+
+        known_nids = set(mapping["Network ID"].astype(str).str.strip().str.upper())
+        missing_nids = sorted([x for x in set(all_nids) if x not in known_nids])
+
+        st.markdown("### Missing Network IDs (not in `network_to_country.csv`)")
+        if not missing_nids:
+            st.success("No missing Network IDs ✅")
+        else:
+            st.warning(f"{len(missing_nids)} missing Network IDs found.")
+            # show top 30 to avoid super-long UI
+            for nid in missing_nids[:30]:
+                c1, c2, c3 = st.columns([1.0, 1.6, 0.8])
+                with c1:
+                    st.code(nid)
+                with c2:
+                    country = st.text_input(f"Country for {nid}", key=f"miss_nid_country_{nid}")
+                with c3:
+                    if st.button("Add", key=f"miss_nid_add_{nid}"):
+                        new_map = upsert_mapping(mapping, nid, country)
+                        save_mapping_df(new_map, MAPPING_PATH)
+                        st.success(f"Added {nid} ✅")
+                        st.rerun()
+
+            if len(missing_nids) > 30:
+                st.caption("Showing first 30 missing IDs. Add them, then refresh to continue.")
+
+        # Partner Names
+        st.markdown("---")
+        st.markdown("### Missing Partner Names (optional: save into `partner_to_country.csv`)")
+
+        if "Partner Name" in raw_all.columns:
+            all_partners = raw_all["Partner Name"].astype(str).str.strip()
+            all_partners = [p for p in all_partners.unique().tolist() if p and p.lower() not in ["nan", "none", "total", "grand total"]]
+        else:
+            all_partners = []
+
+        known_partners = set(partner_map["Partner Name"].astype(str).str.strip().str.lower())
+        missing_partners = sorted([p for p in set(all_partners) if p.lower() not in known_partners])
+
+        if not missing_partners:
+            st.success("No missing Partner Names ✅")
+        else:
+            st.info(f"{len(missing_partners)} partner names not in partner map. Add only if needed.")
+            for pname in missing_partners[:20]:
+                c1, c2, c3 = st.columns([1.4, 1.2, 0.8])
+                with c1:
+                    st.write(pname)
+                with c2:
+                    country = st.text_input(f"Country", key=f"miss_partner_country_{pname}")
+                with c3:
+                    if st.button("Add", key=f"miss_partner_add_{pname}"):
+                        new_pm = upsert_partner_mapping(partner_map, pname, country)
+                        save_mapping_df(new_pm, PARTNER_MAPPING_PATH)
+                        st.success("Added ✅")
+                        st.rerun()
+
+            if len(missing_partners) > 20:
+                st.caption("Showing first 20 missing partners. Add them, then refresh to continue.")
 
 
 def parse_workbook(file_bytes: bytes, filename: str):
@@ -452,8 +617,13 @@ def run_roaming():
         label_visibility="collapsed",
     )
 
+    # ---------- Load mapping ----------
     mapping = load_mapping()
     partner_map = load_partner_mapping()
+
+    # ✅ In-app mapping editor in sidebar
+    render_mapping_editor_sidebar(mapping, partner_map)
+
     pm_dict = dict(
         zip(
             partner_map["Partner Name"].astype(str).str.lower(),
@@ -503,6 +673,9 @@ def run_roaming():
         if cmp_raw.empty:
             st.error("No usable data found in compare files.")
             st.stop()
+
+        # ✅ show missing mappings for compare too
+        render_missing_mappings_ui(cmp_raw, mapping, partner_map)
 
         cmp_ok = _apply_country_mapping(cmp_raw, mapping, pm_dict)
         if cmp_ok.empty:
@@ -586,6 +759,15 @@ def run_roaming():
     if raw_all.empty:
         st.error("No usable data found. Check sheet names/headers.")
         st.stop()
+
+    # ✅ Missing mapping UI (add inside interface itself)
+    render_missing_mappings_ui(raw_all, mapping, partner_map)
+
+    # After potential in-app changes, reload mapping fresh (to be safe)
+    mapping = load_mapping()
+    partner_map = load_partner_mapping()
+    pm_dict = dict(zip(partner_map["Partner Name"].astype(str).str.lower(),
+                       partner_map["Country"].astype(str)))
 
     df_ok = _apply_country_mapping(raw_all, mapping, pm_dict)
     if df_ok.empty:

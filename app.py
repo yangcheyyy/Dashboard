@@ -1,9 +1,14 @@
 # app.py
 import streamlit as st
+
 from roaming import run_roaming
 from data_plan import run_data_plan
 
-st.set_page_config(page_title="TashiCell Analytics Dashboard", layout="wide")
+
+st.set_page_config(
+    page_title="TashiCell Analytics Dashboard",
+    layout="wide",
+)
 
 analysis = st.sidebar.selectbox(
     "Select analysis",
