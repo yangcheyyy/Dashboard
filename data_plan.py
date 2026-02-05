@@ -23,11 +23,30 @@ def run_data_plan():
     # Helpers
     # -----------------------------
     def normalize_source_name(src: str) -> str:
+        """
+        Merge ALL variants into the base source name (remove trailing numbers).
+
+        Examples:
+          'BOB1' / 'BOB 1' / 'BOB-1' / 'BOB_1' / 'BOB(1)' -> 'BOB'
+          'mypay(1)' / 'mypay 2' / 'mypay-3' -> 'mypay'
+          'RMA2' / 'RMA_2' -> 'RMA'
+        """
         if src is None:
             return "Unknown"
+
         s = str(src).strip()
-        s = re.sub(r"[\s_\-]+(\d+)$", "", s).strip()  # "BOB 1" -> "BOB"
         s = re.sub(r"\s+", " ", s).strip()
+
+        # remove trailing bracket number: "mypay(1)" -> "mypay"
+        s = re.sub(r"\(\s*\d+\s*\)\s*$", "", s)
+
+        # normalize separators: "_" "-" -> space
+        s = re.sub(r"[_\-]+", " ", s)
+        s = re.sub(r"\s+", " ", s).strip()
+
+        # remove trailing digits: "BOB 1" or "BOB1" -> "BOB"
+        s = re.sub(r"\s*\d+\s*$", "", s).strip()
+
         return s if s else "Unknown"
 
     def format_currency_short(n: float) -> str:
@@ -76,6 +95,7 @@ def run_data_plan():
         return s.title()
 
     def standardize_plan(x):
+        # Kept for compatibility (not used in Plan Distribution anymore)
         s = clean_plan_name(x)
         plan_map = {
             "Newpackage": "New Package",
@@ -85,7 +105,7 @@ def run_data_plan():
 
     def add_bar_labels(fig, kind="count"):
         if kind == "money":
-            fig.update_traces(textposition="outside", texttemplate="Nu %{text:,.2f}")
+            fig.update_traces(textposition="outside", texttemplate="Nu %{text:,. hooking}")
         else:
             fig.update_traces(textposition="outside", texttemplate="%{text:,}")
         fig.update_layout(uniformtext_minsize=8, uniformtext_mode="hide", margin=dict(t=80))
@@ -113,6 +133,66 @@ def run_data_plan():
             "Time", "TIME", "time",
         ]
         return pick_first_existing_col(df, candidates)
+
+    # ✅ Plan/Talktime bucketing based ONLY on Amount
+    def map_recharge_bucket(amount_value) -> str:
+        """
+        ONLY these are treated as Plans:
+        Daily Plan 19
+        Weekly Plan 49
+        Monthly Plan 99/199/299/499/599/699/777/999/1,299
+        Bi-Monthly Plan 1,499 / 1,999
+        Quaterly Plan 2,499 / 2,999
+
+        Everything else -> Talktime
+        """
+        try:
+            amt = float(amount_value)
+        except Exception:
+            return "Talktime"
+
+        amt_int = int(round(amt))
+
+        daily = {19}
+        weekly = {49}
+        monthly = {99, 199, 299, 499, 599, 699, 777, 999, 1299}
+        bi_monthly = {1499, 1999}
+        quaterly = {2499, 2999}
+
+        def fmt(n: int) -> str:
+            return f"{n:,}"
+
+        if amt_int in daily:
+            return f"Daily Plan {fmt(amt_int)}"
+        if amt_int in weekly:
+            return f"Weekly Plan {fmt(amt_int)}"
+        if amt_int in monthly:
+            return f"Monthly Plan {fmt(amt_int)}"
+        if amt_int in bi_monthly:
+            return f"Bi-Monthly Plan {fmt(amt_int)}"
+        if amt_int in quaterly:
+            return f"Quaterly Plan {fmt(amt_int)}"
+
+        return "Talktime"
+
+    bucket_order = [
+        "Daily Plan 19",
+        "Weekly Plan 49",
+        "Monthly Plan 99",
+        "Monthly Plan 199",
+        "Monthly Plan 299",
+        "Monthly Plan 499",
+        "Monthly Plan 599",
+        "Monthly Plan 699",
+        "Monthly Plan 777",
+        "Monthly Plan 999",
+        "Monthly Plan 1,299",
+        "Bi-Monthly Plan 1,499",
+        "Bi-Monthly Plan 1,999",
+        "Quaterly Plan 2,499",
+        "Quaterly Plan 2,999",
+        "Talktime",
+    ]
 
     # -----------------------------
     # Upload section (SIDEBAR)
@@ -154,7 +234,7 @@ def run_data_plan():
         recharge_df = pd.concat(recharge_parts, ignore_index=True)
 
     # -----------------------------
-    # Detect date column + build period_label (NO sidebar filter options)
+    # Detect date column + build period_label
     # -----------------------------
     recharge_date_col = detect_recharge_date_column(recharge_df)
     dt_series = None
@@ -209,7 +289,7 @@ def run_data_plan():
         st.stop()
 
     # -----------------------------
-    # Build BASE tables ONCE (used by ALL tabs)
+    # Build BASE tables ONCE
     # -----------------------------
     with st.spinner("Processing and matching..."):
         # Customer base
@@ -232,11 +312,19 @@ def run_data_plan():
         rech = rech[~rech["rid_raw"].str.lower().isin(["nan", "none", ""])].copy()
         rech["rid_last8"] = rech["rid_raw"].apply(lambda x: last_n_digits(x, 8))
         rech = rech[rech["rid_last8"] != ""].copy()
-        rech["Amount"] = pd.to_numeric(rech[amount_col], errors="coerce").fillna(0.0)
 
-        # NOTE: NO year/month filtering anymore
+        rech["Amount"] = pd.to_numeric(rech[amount_col], errors="coerce").fillna(0.0)
+        rech["Plan Bucket"] = rech["Amount"].apply(map_recharge_bucket)
+
+        # date + month label (for month-wise charts)
         if recharge_date_col:
             rech["_dt"] = pd.to_datetime(rech[recharge_date_col], errors="coerce", dayfirst=True)
+            rech["_month"] = rech["_dt"].dt.to_period("M").dt.to_timestamp()
+            rech["_month_label"] = rech["_month"].dt.strftime("%b %Y")
+        else:
+            rech["_dt"] = pd.NaT
+            rech["_month"] = pd.NaT
+            rech["_month_label"] = "Unknown"
 
         merged_base = rech.merge(
             cust[["sid_last8", "Age", "Plan"]],
@@ -249,7 +337,7 @@ def run_data_plan():
         total_recharges = int(len(rech))
         matched = int(len(merged_base))
 
-        # Source DF
+        # Source totals
         source_df = (
             rech.groupby("source", as_index=False)
             .agg(
@@ -265,6 +353,24 @@ def run_data_plan():
             source_df = source_df.rename(columns={"source": "Source"}).sort_values("Total Amount (Nu)", ascending=False)
         else:
             source_df = pd.DataFrame(columns=["Source", "Total Recharges", "Total Amount (Nu)", "Avg Amount (Nu)"])
+
+        # Month-wise (for the “single source, multiple months” case)
+        month_source_df = pd.DataFrame()
+        if recharge_date_col:
+            month_source_df = (
+                rech.dropna(subset=["_month"])
+                .groupby(["source", "_month", "_month_label"], as_index=False)
+                .agg(
+                    **{
+                        "Total Recharges": ("Amount", "size"),
+                        "Total Amount (Nu)": ("Amount", "sum"),
+                    }
+                )
+            )
+            if not month_source_df.empty:
+                month_source_df["Total Amount (Nu)"] = month_source_df["Total Amount (Nu)"].round(2)
+                month_source_df["Avg Amount (Nu)"] = (month_source_df["Total Amount (Nu)"] / month_source_df["Total Recharges"]).round(2)
+                month_source_df = month_source_df.sort_values(["source", "_month"])
 
     # -----------------------------
     # Tabs
@@ -287,11 +393,7 @@ def run_data_plan():
 
         with st.expander("Debug: Matching Information", expanded=False):
             st.write(f"Matched recharges: **{matched:,}** / {total_recharges:,}")
-            if matched == 0:
-                st.warning("No matches found. Check last-8-digit matching between Service_ID and RECHARGE_NUMBER.")
-            else:
-                st.write("Matching rule used: **last 8 digits of both IDs** (digits only).")
-                st.write("Source rule used: **file name normalized** (e.g., 'BOB 1/2/3' → 'BOB').")
+            st.write("Source rule used: **base source name** (e.g., 'BOB1/BOB_1/BOB-1/BOB(1)' → 'BOB').")
             if recharge_date_col and dt_series is not None:
                 st.write(f"Date column detected: **{recharge_date_col}** (period label auto, dayfirst=True)")
             else:
@@ -302,40 +404,87 @@ def run_data_plan():
     # -----------------------------
     with tab_source:
         st.subheader("Revenue by Source Area")
-        st.dataframe(source_df.reset_index(drop=True), use_container_width=True, hide_index=True)
 
-        if not source_df.empty:
-            fig_src_amt = px.bar(
-                source_df,
-                x="Source",
+        unique_sources = list(pd.Series(rech["source"].dropna().unique()).astype(str))
+        n_sources = len(unique_sources)
+
+        # ✅ If user uploads ONE source but multiple months -> show month comparison bars (not merged)
+        has_months = (recharge_date_col is not None) and (not month_source_df.empty)
+        multi_month = False
+        if has_months and n_sources == 1:
+            months_for_that_source = month_source_df[month_source_df["source"] == unique_sources[0]]["_month"].nunique()
+            multi_month = months_for_that_source >= 2
+
+        if n_sources == 1 and multi_month:
+            only_source = unique_sources[0]
+            st.caption(f"Detected single source **{only_source}** with multiple months → showing month-wise comparison.")
+
+            ms = month_source_df[month_source_df["source"] == only_source].copy()
+            ms = ms.rename(columns={"source": "Source", "_month_label": "Month"})[
+                ["Source", "Month", "Total Recharges", "Total Amount (Nu)", "Avg Amount (Nu)"]
+            ]
+
+            st.dataframe(ms.reset_index(drop=True), use_container_width=True, hide_index=True)
+
+            fig_m_amt = px.bar(
+                ms,
+                x="Month",
                 y="Total Amount (Nu)",
-                title=f"Total Revenue (Nu) by Source Area — {period_label}",
-                labels={"Source": "Source Area", "Total Amount (Nu)": "Total Revenue (Nu)"},
+                title=f"Total Revenue (Nu) — {only_source} (Month-wise)",
+                labels={"Month": "Month", "Total Amount (Nu)": "Total Revenue (Nu)"},
                 text="Total Amount (Nu)",
             )
-            fig_src_amt.update_layout(template="plotly_white", xaxis_tickangle=-45)
-            add_bar_labels(fig_src_amt, kind="money")
-            st.plotly_chart(fig_src_amt, use_container_width=True)
+            fig_m_amt.update_layout(template="plotly_white", xaxis_tickangle=-45)
+            add_bar_labels(fig_m_amt, kind="money")
+            st.plotly_chart(fig_m_amt, use_container_width=True)
 
-            fig_src_cnt = px.bar(
-                source_df,
-                x="Source",
+            fig_m_cnt = px.bar(
+                ms,
+                x="Month",
                 y="Total Recharges",
-                title=f"Total Recharges by Source Area — {period_label}",
-                labels={"Source": "Source Area", "Total Recharges": "Total Recharges"},
+                title=f"Total Recharges — {only_source} (Month-wise)",
+                labels={"Month": "Month", "Total Recharges": "Total Recharges"},
                 text="Total Recharges",
             )
-            fig_src_cnt.update_layout(template="plotly_white", xaxis_tickangle=-45)
-            add_bar_labels(fig_src_cnt, kind="count")
-            st.plotly_chart(fig_src_cnt, use_container_width=True)
+            fig_m_cnt.update_layout(template="plotly_white", xaxis_tickangle=-45)
+            add_bar_labels(fig_m_cnt, kind="count")
+            st.plotly_chart(fig_m_cnt, use_container_width=True)
+
+        else:
+            # ✅ Default case (many sources OR only 1 month) -> keep aggregated by Source
+            st.dataframe(source_df.reset_index(drop=True), use_container_width=True, hide_index=True)
+
+            if not source_df.empty:
+                fig_src_amt = px.bar(
+                    source_df,
+                    x="Source",
+                    y="Total Amount (Nu)",
+                    title=f"Total Revenue (Nu) by Source Area — {period_label}",
+                    labels={"Source": "Source Area", "Total Amount (Nu)": "Total Revenue (Nu)"},
+                    text="Total Amount (Nu)",
+                )
+                fig_src_amt.update_layout(template="plotly_white", xaxis_tickangle=-45)
+                add_bar_labels(fig_src_amt, kind="money")
+                st.plotly_chart(fig_src_amt, use_container_width=True)
+
+                fig_src_cnt = px.bar(
+                    source_df,
+                    x="Source",
+                    y="Total Recharges",
+                    title=f"Total Recharges by Source Area — {period_label}",
+                    labels={"Source": "Source Area", "Total Recharges": "Total Recharges"},
+                    text="Total Recharges",
+                )
+                fig_src_cnt.update_layout(template="plotly_white", xaxis_tickangle=-45)
+                add_bar_labels(fig_src_cnt, kind="count")
+                st.plotly_chart(fig_src_cnt, use_container_width=True)
 
     # -----------------------------
-    # Age Group Analysis tab (editable; Apply button; DOES NOT reread files)
+    # Age Group Analysis tab
     # -----------------------------
     with tab_age:
         st.subheader(f"Age Group Statistics — {period_label}")
 
-        # Save ranges so they persist
         if "age_ranges" not in st.session_state:
             st.session_state.age_ranges = {
                 "under_1": 15,
@@ -347,7 +496,6 @@ def run_data_plan():
                 "cut_7": 65,
             }
 
-        # ✅ form: avoids rerun on every +/- click; updates only when you press Apply
         with st.expander("Edit Age Group Ranges (click Apply to update)", expanded=False):
             with st.form("age_group_form", clear_on_submit=False):
                 c1, c2, c3, c4 = st.columns(4)
@@ -463,7 +611,7 @@ def run_data_plan():
             st.plotly_chart(fig_age_amt, use_container_width=True)
 
     # -----------------------------
-    # Plan Distribution tab (fixed bins, same as before)
+    # Plan Distribution tab
     # -----------------------------
     with tab_plans:
         st.subheader(f"Plan Usage Distribution by Age Group — {period_label}")
@@ -492,39 +640,52 @@ def run_data_plan():
         else:
             tmp2 = merged_base.copy()
             tmp2["Age Group"] = tmp2["Age"].apply(get_age_group_fixed)
-            tmp2["Plan"] = tmp2["Plan"].replace("", "Unknown plan")
+
+            if "Plan Bucket" not in tmp2.columns:
+                tmp2["Plan Bucket"] = tmp2["Amount"].apply(map_recharge_bucket)
 
             plan_by_age_df = (
-                tmp2.groupby(["Age Group", "Plan"], as_index=False)
-                .agg(**{"Recharge Count": ("Plan", "size")})
+                tmp2.groupby(["Age Group", "Plan Bucket"], as_index=False)
+                .agg(**{"Recharge Count": ("Plan Bucket", "size")})
             )
+
             if not plan_by_age_df.empty:
-                plan_by_age_df["__ord"] = plan_by_age_df["Age Group"].apply(
+                plan_by_age_df["Age__ord"] = plan_by_age_df["Age Group"].apply(
                     lambda x: fixed_order.index(x) if x in fixed_order else 999
                 )
+                plan_by_age_df["Bucket__ord"] = plan_by_age_df["Plan Bucket"].apply(
+                    lambda x: bucket_order.index(x) if x in bucket_order else 999
+                )
                 plan_by_age_df = (
-                    plan_by_age_df.sort_values(["__ord", "Recharge Count"], ascending=[True, False])
-                    .drop(columns="__ord")
+                    plan_by_age_df.sort_values(["Age__ord", "Bucket__ord"], ascending=[True, True])
+                    .drop(columns=["Age__ord", "Bucket__ord"])
                 )
 
             st.dataframe(plan_by_age_df.reset_index(drop=True), use_container_width=True, hide_index=True)
 
+            # ✅ Most popular = rank by Recharge Count DESC
             popular = (
-                plan_by_age_df.groupby("Plan", as_index=False)["Recharge Count"].sum()
+                plan_by_age_df.groupby("Plan Bucket", as_index=False)["Recharge Count"].sum()
                 .sort_values("Recharge Count", ascending=False)
-                .head(25)
+                .reset_index(drop=True)
             )
+            if not popular.empty:
+                popular.insert(0, "Rank", range(1, len(popular) + 1))
 
-            st.subheader("Most Popular Plans (Overall)")
-            st.dataframe(popular.reset_index(drop=True), use_container_width=True, hide_index=True)
+            st.subheader("Most Popular Buckets (Overall) — Ranked")
+            st.dataframe(popular, use_container_width=True, hide_index=True)
+
+            # Bar chart in the same ranked order
+            ranked_order = popular["Plan Bucket"].tolist() if not popular.empty else bucket_order
 
             fig_pop = px.bar(
                 popular,
-                x="Plan",
+                x="Plan Bucket",
                 y="Recharge Count",
-                title=f"Top 25 Most Popular Plans by Recharge Count — {period_label}",
-                labels={"Plan": "Plan Name", "Recharge Count": "Recharge Count"},
+                title=f"Most Popular Buckets by Recharge Count — {period_label}",
+                labels={"Plan Bucket": "Plan Bucket", "Recharge Count": "Recharge Count"},
                 text="Recharge Count",
+                category_orders={"Plan Bucket": ranked_order},
             )
             fig_pop.update_layout(template="plotly_white", xaxis_tickangle=-45)
             add_bar_labels(fig_pop, kind="count")
