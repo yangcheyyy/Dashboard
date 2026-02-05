@@ -672,7 +672,7 @@ def run_data_plan():
             if not popular.empty:
                 popular.insert(0, "Rank", range(1, len(popular) + 1))
 
-            st.subheader("Most Popular Buckets (Overall) — Ranked")
+            st.subheader("Most Popular Buckets")
             st.dataframe(popular, use_container_width=True, hide_index=True)
 
             # Bar chart in the same ranked order
