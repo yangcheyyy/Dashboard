@@ -30,6 +30,8 @@ def run_data_plan():
           'BOB1' / 'BOB 1' / 'BOB-1' / 'BOB_1' / 'BOB(1)' -> 'BOB'
           'mypay(1)' / 'mypay 2' / 'mypay-3' -> 'mypay'
           'RMA2' / 'RMA_2' -> 'RMA'
+
+        ✅ Also: standardize My TashiCell variants to 'my tashicell'
         """
         if src is None:
             return "Unknown"
@@ -46,6 +48,18 @@ def run_data_plan():
 
         # remove trailing digits: "BOB 1" or "BOB1" -> "BOB"
         s = re.sub(r"\s*\d+\s*$", "", s).strip()
+
+        # =========================
+        # ✅ FIX: Normalize casing for "my tashicell"
+        # =========================
+        if s:
+            s_lower = s.lower()
+            # handle messy spellings/cases like "My tASHICELL"
+            if re.fullmatch(r"my\s+tashi\s*cell", s_lower.replace(" ", "")) or s_lower.replace(" ", "") == "mytashicell":
+                return "my tashicell"
+            # simpler safe match
+            if "tashicell" in s_lower and s_lower.startswith("my"):
+                return "my tashicell"
 
         return s if s else "Unknown"
 
@@ -369,7 +383,9 @@ def run_data_plan():
             )
             if not month_source_df.empty:
                 month_source_df["Total Amount (Nu)"] = month_source_df["Total Amount (Nu)"].round(2)
-                month_source_df["Avg Amount (Nu)"] = (month_source_df["Total Amount (Nu)"] / month_source_df["Total Recharges"]).round(2)
+                month_source_df["Avg Amount (Nu)"] = (
+                    month_source_df["Total Amount (Nu)"] / month_source_df["Total Recharges"]
+                ).round(2)
                 month_source_df = month_source_df.sort_values(["source", "_month"])
 
     # -----------------------------
