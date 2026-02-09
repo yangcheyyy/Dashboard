@@ -54,10 +54,8 @@ def run_data_plan():
         # =========================
         if s:
             s_lower = s.lower()
-            # handle messy spellings/cases like "My tASHICELL"
             if re.fullmatch(r"my\s+tashi\s*cell", s_lower.replace(" ", "")) or s_lower.replace(" ", "") == "mytashicell":
                 return "my tashicell"
-            # simpler safe match
             if "tashicell" in s_lower and s_lower.startswith("my"):
                 return "my tashicell"
 
@@ -109,7 +107,6 @@ def run_data_plan():
         return s.title()
 
     def standardize_plan(x):
-        # Kept for compatibility (not used in Plan Distribution anymore)
         s = clean_plan_name(x)
         plan_map = {
             "Newpackage": "New Package",
@@ -148,18 +145,7 @@ def run_data_plan():
         ]
         return pick_first_existing_col(df, candidates)
 
-    # ✅ Plan/Talktime bucketing based ONLY on Amount
     def map_recharge_bucket(amount_value) -> str:
-        """
-        ONLY these are treated as Plans:
-        Daily Plan 19
-        Weekly Plan 49
-        Monthly Plan 99/199/299/499/599/699/777/999/1,299
-        Bi-Monthly Plan 1,499 / 1,999
-        Quaterly Plan 2,499 / 2,999
-
-        Everything else -> Talktime
-        """
         try:
             amt = float(amount_value)
         except Exception:
@@ -306,7 +292,6 @@ def run_data_plan():
     # Build BASE tables ONCE
     # -----------------------------
     with st.spinner("Processing and matching..."):
-        # Customer base
         cust = customer_df[[service_id_col, dob_col, plan_col]].copy()
         cust["sid_raw"] = cust[service_id_col].astype(str).str.strip()
         cust = cust[~cust["sid_raw"].str.lower().isin(["nan", "none", ""])].copy()
@@ -316,7 +301,6 @@ def run_data_plan():
         cust["sid_last8"] = cust["sid_raw"].apply(lambda x: last_n_digits(x, 8))
         cust = cust[cust["sid_last8"] != ""].copy()
 
-        # Recharge base
         cols = [recharge_num_col, amount_col, "source"]
         if recharge_date_col:
             cols.append(recharge_date_col)
@@ -330,7 +314,6 @@ def run_data_plan():
         rech["Amount"] = pd.to_numeric(rech[amount_col], errors="coerce").fillna(0.0)
         rech["Plan Bucket"] = rech["Amount"].apply(map_recharge_bucket)
 
-        # date + month label (for month-wise charts)
         if recharge_date_col:
             rech["_dt"] = pd.to_datetime(rech[recharge_date_col], errors="coerce", dayfirst=True)
             rech["_month"] = rech["_dt"].dt.to_period("M").dt.to_timestamp()
@@ -351,7 +334,6 @@ def run_data_plan():
         total_recharges = int(len(rech))
         matched = int(len(merged_base))
 
-        # Source totals
         source_df = (
             rech.groupby("source", as_index=False)
             .agg(
@@ -368,7 +350,6 @@ def run_data_plan():
         else:
             source_df = pd.DataFrame(columns=["Source", "Total Recharges", "Total Amount (Nu)", "Avg Amount (Nu)"])
 
-        # Month-wise (for the “single source, multiple months” case)
         month_source_df = pd.DataFrame()
         if recharge_date_col:
             month_source_df = (
@@ -388,9 +369,6 @@ def run_data_plan():
                 ).round(2)
                 month_source_df = month_source_df.sort_values(["source", "_month"])
 
-    # -----------------------------
-    # Tabs
-    # -----------------------------
     tab_overview, tab_source, tab_age, tab_plans = st.tabs(
         ["Overview", "Source Analysis", "Age Group Analysis", "Plan Distribution"]
     )
@@ -407,13 +385,10 @@ def run_data_plan():
         m3.metric("Total Revenue (Nu)", format_currency_short(total_rev))
         m4.metric("Avg Recharge (Nu)", f"{(total_rev/total_recharges if total_recharges else 0):,.2f}")
 
+        # ✅ Edited Debug box: removed date-column detected line
         with st.expander("Debug: Matching Information", expanded=False):
             st.write(f"Matched recharges: **{matched:,}** / {total_recharges:,}")
             st.write("Source rule used: **base source name** (e.g., 'BOB1/BOB_1/BOB-1/BOB(1)' → 'BOB').")
-            if recharge_date_col and dt_series is not None:
-                st.write(f"Date column detected: **{recharge_date_col}** (period label auto, dayfirst=True)")
-            else:
-                st.write("No valid date column detected → period label is 'All Periods'.")
 
     # -----------------------------
     # Source tab
@@ -424,7 +399,6 @@ def run_data_plan():
         unique_sources = list(pd.Series(rech["source"].dropna().unique()).astype(str))
         n_sources = len(unique_sources)
 
-        # ✅ If user uploads ONE source but multiple months -> show month comparison bars (not merged)
         has_months = (recharge_date_col is not None) and (not month_source_df.empty)
         multi_month = False
         if has_months and n_sources == 1:
@@ -467,7 +441,6 @@ def run_data_plan():
             st.plotly_chart(fig_m_cnt, use_container_width=True)
 
         else:
-            # ✅ Default case (many sources OR only 1 month) -> keep aggregated by Source
             st.dataframe(source_df.reset_index(drop=True), use_container_width=True, hide_index=True)
 
             if not source_df.empty:
@@ -679,7 +652,6 @@ def run_data_plan():
 
             st.dataframe(plan_by_age_df.reset_index(drop=True), use_container_width=True, hide_index=True)
 
-            # ✅ Most popular = rank by Recharge Count DESC
             popular = (
                 plan_by_age_df.groupby("Plan Bucket", as_index=False)["Recharge Count"].sum()
                 .sort_values("Recharge Count", ascending=False)
@@ -691,7 +663,6 @@ def run_data_plan():
             st.subheader("Most Popular Buckets")
             st.dataframe(popular, use_container_width=True, hide_index=True)
 
-            # Bar chart in the same ranked order
             ranked_order = popular["Plan Bucket"].tolist() if not popular.empty else bucket_order
 
             fig_pop = px.bar(
