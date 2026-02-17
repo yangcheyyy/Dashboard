@@ -1,5 +1,9 @@
 streamlit
 pandas
+numpy
 plotly
 openpyxl>=3.1.2
 pycountry
+scikit-learn
+prophet
+joblib

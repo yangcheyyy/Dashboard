@@ -2,6 +2,8 @@
 import io
 import re
 import os
+from typing import Tuple
+
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -24,6 +26,14 @@ NETWORK_ID_ALIASES = {
 def safe_year_from_filename(name: str):
     m = re.search(r"(19\d{2}|20\d{2})", str(name))
     return int(m.group(1)) if m else None
+
+
+def df_index_from_1(df: pd.DataFrame, index_name: str = "#") -> pd.DataFrame:
+    """Return a copy of df with displayed index starting from 1 (for Streamlit tables)."""
+    out = df.copy()
+    out.index = range(1, len(out) + 1)
+    out.index.name = index_name
+    return out
 
 
 def country_to_iso3(country_name: str):
@@ -286,9 +296,6 @@ def upsert_partner_mapping(pm: pd.DataFrame, partner_name: str, country: str) ->
 
 
 def render_mapping_editor_sidebar(mapping: pd.DataFrame, partner_map: pd.DataFrame):
-    """
-    Shows UI in sidebar to add/update mappings and saves into CSV files.
-    """
     with st.sidebar.expander("🛠️ Mapping Manager (Edit in App)", expanded=False):
         st.caption("Add / update mapping here. It saves into CSV and refreshes automatically.")
 
@@ -306,10 +313,14 @@ def render_mapping_editor_sidebar(mapping: pd.DataFrame, partner_map: pd.DataFra
                     st.rerun()
             with col_b:
                 if st.button("📄 View Network Map", use_container_width=True, key="mm_view_nid"):
-                    st.dataframe(mapping, use_container_width=True, height=250)
+                    st.dataframe(df_index_from_1(mapping), use_container_width=True, height=250)
 
         with tab2:
-            pname = st.text_input("Partner Name", placeholder="e.g., Advanced Wireless Network Company Limited", key="mm_partner")
+            pname = st.text_input(
+                "Partner Name",
+                placeholder="e.g., Advanced Wireless Network Company Limited",
+                key="mm_partner",
+            )
             ctry2 = st.text_input("Country", placeholder="e.g., Thailand", key="mm_country2")
             col_c, col_d = st.columns([1, 1])
             with col_c:
@@ -320,20 +331,14 @@ def render_mapping_editor_sidebar(mapping: pd.DataFrame, partner_map: pd.DataFra
                     st.rerun()
             with col_d:
                 if st.button("📄 View Partner Map", use_container_width=True, key="mm_view_partner"):
-                    st.dataframe(partner_map, use_container_width=True, height=250)
+                    st.dataframe(df_index_from_1(partner_map), use_container_width=True, height=250)
 
 
 def render_missing_mappings_ui(raw_all: pd.DataFrame, mapping: pd.DataFrame, partner_map: pd.DataFrame):
-    """
-    Shows missing network IDs / partner names and lets user add them quickly.
-    """
     with st.expander("⚠️ Missing mappings (Fix here)", expanded=False):
         # Network IDs
         if "Network ID" in raw_all.columns:
-            all_nids = (
-                raw_all["Network ID"].astype(str).str.strip().str.upper()
-                .replace(NETWORK_ID_ALIASES)
-            )
+            all_nids = raw_all["Network ID"].astype(str).str.strip().str.upper().replace(NETWORK_ID_ALIASES)
             all_nids = [x for x in all_nids.unique().tolist() if x and x.lower() not in ["nan", "none"]]
         else:
             all_nids = []
@@ -346,7 +351,6 @@ def render_missing_mappings_ui(raw_all: pd.DataFrame, mapping: pd.DataFrame, par
             st.success("No missing Network IDs ✅")
         else:
             st.warning(f"{len(missing_nids)} missing Network IDs found.")
-            # show top 30 to avoid super-long UI
             for nid in missing_nids[:30]:
                 c1, c2, c3 = st.columns([1.0, 1.6, 0.8])
                 with c1:
@@ -369,7 +373,10 @@ def render_missing_mappings_ui(raw_all: pd.DataFrame, mapping: pd.DataFrame, par
 
         if "Partner Name" in raw_all.columns:
             all_partners = raw_all["Partner Name"].astype(str).str.strip()
-            all_partners = [p for p in all_partners.unique().tolist() if p and p.lower() not in ["nan", "none", "total", "grand total"]]
+            all_partners = [
+                p for p in all_partners.unique().tolist()
+                if p and p.lower() not in ["nan", "none", "total", "grand total"]
+            ]
         else:
             all_partners = []
 
@@ -385,7 +392,7 @@ def render_missing_mappings_ui(raw_all: pd.DataFrame, mapping: pd.DataFrame, par
                 with c1:
                     st.write(pname)
                 with c2:
-                    country = st.text_input(f"Country", key=f"miss_partner_country_{pname}")
+                    country = st.text_input("Country", key=f"miss_partner_country_{pname}")
                 with c3:
                     if st.button("Add", key=f"miss_partner_add_{pname}"):
                         new_pm = upsert_partner_mapping(partner_map, pname, country)
@@ -420,14 +427,9 @@ def parse_workbook(file_bytes: bytes, filename: str):
         if any(col not in df.columns for col in needed):
             continue
 
-        # ✅ Apply standardisation BEFORE filtering / mapping
         df["Network ID"] = (
-            df["Network ID"]
-            .astype("string")
-            .str.strip()
-            .str.upper()
-            .replace(NETWORK_ID_ALIASES)
-            .fillna("")
+            df["Network ID"].astype("string").str.strip().str.upper()
+            .replace(NETWORK_ID_ALIASES).fillna("")
         )
 
         partner = df["Partner Name"].astype("string").str.strip().fillna("")
@@ -519,12 +521,8 @@ def season_order():
 def _apply_country_mapping(df_in: pd.DataFrame, mapping: pd.DataFrame, pm_dict: dict) -> pd.DataFrame:
     df = df_in.copy()
 
-    # ✅ ensure standardised IDs also here (covers any external / compare data edge-case)
     df["Network ID"] = (
-        df["Network ID"]
-        .astype(str)
-        .str.strip()
-        .str.upper()
+        df["Network ID"].astype(str).str.strip().str.upper()
         .replace(NETWORK_ID_ALIASES)
     )
 
@@ -562,219 +560,50 @@ def _apply_country_mapping(df_in: pd.DataFrame, mapping: pd.DataFrame, pm_dict: 
     return df[df["Country"] != ""].copy()
 
 
-def _reset_compare_uploader():
-    st.session_state["compare_uploader_version"] = st.session_state.get("compare_uploader_version", 0) + 1
-    st.rerun()
-
-
 # =========================
-# Main Page
+# Bulk upload cache (upload all years once)
 # =========================
-def run_roaming():
+def _init_cache():
+    if "roaming_cache" not in st.session_state:
+        st.session_state["roaming_cache"] = {
+            "files_sig": None,
+            "raw_all": None,
+            "df_ok": None,
+            "country_usage": None,
+            "years": [],
+        }
 
-    st.markdown(
-        """
-        <style>
-        .block-container { padding-top: 4.2rem !important; padding-bottom: 1.2rem; }
-        header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
 
-        section[data-testid="stSidebar"] { border-right: 1px solid #eee; }
-        h1, h2, h3 { margin-bottom: 0.35rem; }
+def _signature(files) -> Tuple[Tuple[str, int], ...]:
+    return tuple(sorted([(f.name, getattr(f, "size", 0)) for f in files]))
 
-        .title-row { display:flex; align-items:center; gap:12px; font-weight:800; margin: 0.2rem 0 0.4rem 0; flex-wrap: wrap; }
-        .title-row .title-text { font-size: 40px; line-height: 1.15; }
-        @media (max-width: 1100px) { .title-row .title-text { font-size: 34px; } }
-        .title-icon { width:44px; height:44px; display:flex; align-items:center; justify-content:center; border-radius:10px; background: rgba(37, 99, 235, 0.10); }
 
-        div[data-testid="stSelectbox"] > div { max-width: 520px; }
-        [data-testid="stPlotlyChart"] > div { height: 100% !important; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # ---------- Sidebar ----------
-    st.sidebar.title("Upload")
-
-    uploaded_files = st.sidebar.file_uploader(
-        "Upload Daily In Roamers Report Excel file(s)",
-        type=["xlsx"],
-        accept_multiple_files=True,
-        key="main_roaming_uploader",
-    )
-
-    st.sidebar.caption(" ")
-    if "compare_uploader_version" not in st.session_state:
-        st.session_state["compare_uploader_version"] = 0
-    compare_key = f"compare_years_sidebar_{st.session_state['compare_uploader_version']}"
-
-    st.sidebar.caption("Compare Years (optional)")
-    compare_files = st.sidebar.file_uploader(
-        "Compare years files",
-        type=["xlsx"],
-        accept_multiple_files=True,
-        key=compare_key,
-        label_visibility="collapsed",
-    )
-
-    # ---------- Load mapping ----------
-    mapping = load_mapping()
-    partner_map = load_partner_mapping()
-
-    # ✅ In-app mapping editor in sidebar
-    render_mapping_editor_sidebar(mapping, partner_map)
-
-    pm_dict = dict(
-        zip(
-            partner_map["Partner Name"].astype(str).str.lower(),
-            partner_map["Country"].astype(str),
-        )
-    )
-
-    metric_options = [
-        "Total Volume(GB)",
-        "Total Duration(min)",
-        "Total GPRS Amount(USD)",
-        "Total Voice Amount(USD)",
-        "Total SubCount",
-        "Total RecCount",
-    ]
-
-    # ==========================================================
-    # Compare Mode
-    # ==========================================================
-    if compare_files:
-        metric = st.session_state.get("metric_normal_mode", "Total Volume(GB)")
-        if metric not in metric_options:
-            metric = "Total Volume(GB)"
-
-        back_col, title_col = st.columns([1, 6])
-        with back_col:
-            if st.button("← Back", use_container_width=True):
-                _reset_compare_uploader()
-        with title_col:
-            st.markdown("## Compare Years (Monthly Trend)")
-
-        if len(compare_files) < 2:
-            st.warning("Please upload at least 2 files in the sidebar Compare Years section.")
-            st.stop()
-
-        if len(compare_files) > 3:
-            st.warning("You uploaded more than 3 files. Only the first 3 will be used.")
-            compare_files = compare_files[:3]
-
-        cmp_parts = []
-        for uf in compare_files:
-            p = parse_workbook(uf.getvalue(), uf.name)
-            p["SourceFile"] = uf.name
-            cmp_parts.append(p)
-
-        cmp_raw = pd.concat(cmp_parts, ignore_index=True)
-        if cmp_raw.empty:
-            st.error("No usable data found in compare files.")
-            st.stop()
-
-        # ✅ show missing mappings for compare too
-        render_missing_mappings_ui(cmp_raw, mapping, partner_map)
-
-        cmp_ok = _apply_country_mapping(cmp_raw, mapping, pm_dict)
-        if cmp_ok.empty:
-            st.error("All countries are missing in compare files after mapping.")
-            st.stop()
-
-        cmp_ok["Month"] = cmp_ok["Month"].astype(str).str.strip()
-        cmp_ok["MonthNum"] = cmp_ok["Month"].apply(_month_sort_key)
-        cmp_ok["Month"] = cmp_ok["MonthNum"].apply(month_label_from_num)
-
-        cmp_trend = (
-            cmp_ok.groupby(["Year", "MonthNum", "Month"], as_index=False)[metric]
-            .sum()
-            .sort_values(["MonthNum", "Year"])
-        )
-
-        years_cmp = sorted([int(y) for y in cmp_trend["Year"].dropna().unique() if pd.notna(y)])
-        month_order = (
-            cmp_trend[["MonthNum", "Month"]]
-            .drop_duplicates()
-            .sort_values("MonthNum")["Month"]
-            .tolist()
-        )
-
-        fig_trend_compare = px.line(
-            cmp_trend,
-            x="Month",
-            y=metric,
-            color="Year",
-            markers=True,
-            category_orders={"Month": month_order},
-            title=f"Monthly Trend Comparison of {metric} (Years: {', '.join(map(str, years_cmp))})",
-        )
-        fig_trend_compare.update_layout(
-            height=560,
-            template="plotly_white",
-            xaxis_tickangle=-35,
-            xaxis_title="Month",
-            margin=dict(t=90, l=10, r=10, b=40),
-        )
-        st.plotly_chart(fig_trend_compare, use_container_width=True)
-        st.stop()
-
-    # ==========================================================
-    # Normal Mode
-    # ==========================================================
-    st.markdown(
-        """
-        <div class="title-row">
-          <div class="title-icon"></div>
-          <div class="title-text">Roaming Data Usage by Country</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if not uploaded_files:
-        st.markdown(
-            """
-            <div style="
-                background:#fff9db;
-                border-radius:10px;
-                padding:14px 16px;
-                border: 1px solid rgba(0,0,0,0.05);
-                font-size:16px;">
-                Upload one or more Excel files to begin.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.stop()
-
-    # ---------- Load / combine ----------
+def _rebuild_all(uploaded_files, mapping, partner_map, pm_dict):
     all_data = []
     for uf in uploaded_files:
         part = parse_workbook(uf.getvalue(), uf.name)
         part["SourceFile"] = uf.name
         all_data.append(part)
 
-    raw_all = pd.concat(all_data, ignore_index=True)
+    raw_all = pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
     if raw_all.empty:
-        st.error("No usable data found. Check sheet names/headers.")
-        st.stop()
+        return raw_all, raw_all, raw_all, []
 
-    # ✅ Missing mapping UI (add inside interface itself)
+    # show missing mapping UI for whole dataset
     render_missing_mappings_ui(raw_all, mapping, partner_map)
 
-    # After potential in-app changes, reload mapping fresh (to be safe)
-    mapping = load_mapping()
-    partner_map = load_partner_mapping()
-    pm_dict = dict(zip(partner_map["Partner Name"].astype(str).str.lower(),
-                       partner_map["Country"].astype(str)))
+    # reload mapping after any in-app edits
+    mapping2 = load_mapping()
+    partner_map2 = load_partner_mapping()
+    pm_dict2 = dict(zip(
+        partner_map2["Partner Name"].astype(str).str.lower(),
+        partner_map2["Country"].astype(str),
+    ))
 
-    df_ok = _apply_country_mapping(raw_all, mapping, pm_dict)
+    df_ok = _apply_country_mapping(raw_all, mapping2, pm_dict2)
     if df_ok.empty:
-        st.error("All countries are missing after mapping. Please update mapping CSVs.")
-        st.stop()
+        return raw_all, df_ok, pd.DataFrame(), []
 
-    # ---------- Prepare aggregated country usage ----------
     country_usage = (
         df_ok.groupby(["Year", "Country"], as_index=False)
         .agg(
@@ -792,145 +621,393 @@ def run_roaming():
     country_usage["ISO3"] = country_usage["Country"].apply(country_to_iso3)
 
     years = sorted([y for y in country_usage["Year"].dropna().unique() if pd.notna(y)])
-    if not years:
-        st.error("Year not detected from filenames. Ensure filenames include year like 2019, 2020, etc.")
+    return raw_all, df_ok, country_usage, years
+
+
+def _clear_cache():
+    st.session_state["roaming_cache"] = {
+        "files_sig": None,
+        "raw_all": None,
+        "df_ok": None,
+        "country_usage": None,
+        "years": [],
+    }
+    st.rerun()
+
+
+# =========================
+# Main Page
+# =========================
+def run_roaming():
+
+    st.markdown(
+        """
+        <style>
+        .block-container { padding-top: 4.2rem !important; padding-bottom: 1.2rem; }
+        header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
+        section[data-testid="stSidebar"] { border-right: 1px solid #eee; }
+        h1, h2, h3 { margin-bottom: 0.35rem; }
+
+        .title-row { display:flex; align-items:center; gap:12px; font-weight:800; margin: 0.2rem 0 0.4rem 0; flex-wrap: wrap; }
+        .title-row .title-text { font-size: 40px; line-height: 1.15; }
+        @media (max-width: 1100px) { .title-row .title-text { font-size: 34px; } }
+        .title-icon { width:44px; height:44px; display:flex; align-items:center; justify-content:center; border-radius:10px; background: rgba(37, 99, 235, 0.10); }
+
+        div[data-testid="stSelectbox"] > div { max-width: 520px; }
+        [data-testid="stPlotlyChart"] > div { height: 100% !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    _init_cache()
+
+    metric_options = [
+        "Total Volume(GB)",
+        "Total Duration(min)",
+        "Total GPRS Amount(USD)",
+        "Total Voice Amount(USD)",
+        "Total SubCount",
+        "Total RecCount",
+    ]
+
+    # Sidebar upload
+    st.sidebar.title("Upload (ALL years)")
+    uploaded_files = st.sidebar.file_uploader(
+        "Upload Daily In Roamers Report Excel file(s) (upload all years here once)",
+        type=["xlsx"],
+        accept_multiple_files=True,
+        key="main_roaming_uploader_all_years",
+    )
+    st.sidebar.caption(" ")
+    st.sidebar.button("🧹 Clear loaded data", use_container_width=True, on_click=_clear_cache)
+
+    # Mapping
+    mapping = load_mapping()
+    partner_map = load_partner_mapping()
+    render_mapping_editor_sidebar(mapping, partner_map)
+    pm_dict = dict(zip(
+        partner_map["Partner Name"].astype(str).str.lower(),
+        partner_map["Country"].astype(str),
+    ))
+
+    st.markdown(
+        """
+        <div class="title-row">
+          <div class="title-icon"></div>
+          <div class="title-text">Roaming Data Usage by Country</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if not uploaded_files:
+        st.info("Upload all year Excel files first (multiple files). After that you can select any year and compare years.")
         st.stop()
 
-    ctrl1, ctrl2, ctrl3 = st.columns([1.1, 1.35, 2.1])
-    with ctrl1:
-        year_selected = st.selectbox("Select Year", years, index=len(years) - 1)
-    with ctrl2:
-        metric = st.selectbox("Metric", metric_options, index=0, key="metric_normal_mode")
-    with ctrl3:
-        top_n = st.slider("Top N countries", 5, 30, 15)
+    # Build / reuse cached dataset
+    sig = _signature(uploaded_files)
+    cache = st.session_state["roaming_cache"]
 
-    year_df = country_usage[country_usage["Year"] == year_selected].copy().sort_values(metric, ascending=False)
+    if cache["files_sig"] != sig or cache["country_usage"] is None:
+        raw_all, df_ok, country_usage, years = _rebuild_all(uploaded_files, mapping, partner_map, pm_dict)
 
-    top_operator_df = (
-        df_ok[df_ok["Year"] == year_selected]
-        .groupby(["Country", "Partner Name"], as_index=False)
-        .agg({metric: "sum"})
+        if raw_all.empty:
+            st.error("No usable data found. Check sheet names/headers.")
+            st.stop()
+        if df_ok.empty:
+            st.error("All countries are missing after mapping. Please update mapping CSVs.")
+            st.stop()
+        if not years:
+            st.error("Year not detected from filenames. Ensure filenames include year like 2019, 2020, etc.")
+            st.stop()
+
+        st.session_state["roaming_cache"] = {
+            "files_sig": sig,
+            "raw_all": raw_all,
+            "df_ok": df_ok,
+            "country_usage": country_usage,
+            "years": years,
+        }
+        cache = st.session_state["roaming_cache"]
+
+    df_ok = cache["df_ok"]
+    country_usage = cache["country_usage"]
+    years = cache["years"]
+
+    # View mode
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("View Mode")
+    view_mode = st.sidebar.radio(
+        "Select view",
+        ["Single Year", "Compare Years (Multi-year)"],
+        index=0,
+        label_visibility="collapsed",
     )
-    if not top_operator_df.empty:
-        top_operator_per_country = (
-            top_operator_df.loc[top_operator_df.groupby("Country")[metric].idxmax()]
-            .set_index("Country")["Partner Name"]
-            .to_dict()
+
+    # =========================
+    # SINGLE YEAR
+    # =========================
+    if view_mode == "Single Year":
+        ctrl1, ctrl2, ctrl3 = st.columns([1.1, 1.35, 2.1])
+        with ctrl1:
+            year_selected = st.selectbox("Select Year", years, index=len(years) - 1)
+        with ctrl2:
+            metric = st.selectbox("Metric", metric_options, index=0, key="metric_normal_mode")
+        with ctrl3:
+            top_n = st.slider("Top N countries", 5, 30, 15)
+
+        year_df = country_usage[country_usage["Year"] == year_selected].copy().sort_values(metric, ascending=False)
+
+        top_operator_df = (
+            df_ok[df_ok["Year"] == year_selected]
+            .groupby(["Country", "Partner Name"], as_index=False)
+            .agg({metric: "sum"})
         )
-    else:
-        top_operator_per_country = {}
+        if not top_operator_df.empty:
+            top_operator_per_country = (
+                top_operator_df.loc[top_operator_df.groupby("Country")[metric].idxmax()]
+                .set_index("Country")["Partner Name"]
+                .to_dict()
+            )
+        else:
+            top_operator_per_country = {}
 
-    left, right = st.columns([1, 1])
+        left, right = st.columns([1, 1])
 
-    with left:
-        st.markdown(f"### Top {top_n} Countries ({metric}) - {year_selected}")
-        top_df = year_df.head(top_n).copy()
-        top_df["Top Operator"] = top_df["Country"].map(top_operator_per_country)
+        with left:
+            st.markdown(f"### Top {top_n} Countries ({metric}) - {year_selected}")
+            top_df = year_df.head(top_n).copy()
+            top_df["Top Operator"] = top_df["Country"].map(top_operator_per_country)
 
-        fig_bar = px.bar(
-            top_df,
-            x="Country",
+            fig_bar = px.bar(
+                top_df,
+                x="Country",
+                y=metric,
+                hover_data={"Top Operator": True, metric: ":,.4f"},
+                category_orders={"Country": top_df["Country"].tolist()},
+            )
+            fig_bar.update_traces(texttemplate="%{y:,.2f}", textposition="outside")
+            fig_bar.update_layout(
+                height=500,
+                template="plotly_white",
+                margin=dict(t=30, l=10, r=10, b=40),
+                xaxis_tickangle=-35,
+                yaxis_title=metric,
+                xaxis_title="Country",
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        with right:
+            st.markdown(f"### World Map ({metric}) - {year_selected}")
+            map_df = year_df[year_df["ISO3"].notna()].copy()
+            map_df["Top Operator"] = map_df["Country"].map(top_operator_per_country)
+
+            fig_map = px.choropleth(
+                map_df,
+                locations="ISO3",
+                color=metric,
+                hover_data={"Country": True, metric: ":,.4f", "Top Operator": True, "ISO3": False},
+                color_continuous_scale="Blues",
+            )
+            fig_map.update_layout(
+                height=500,
+                template="plotly_white",
+                margin=dict(t=30, l=10, r=10, b=10),
+                geo=dict(showframe=False, showcoastlines=True, projection_type="natural earth"),
+                coloraxis_colorbar=dict(title=metric),
+            )
+            st.plotly_chart(fig_map, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("## Month-wise and Season-wise Analysis")
+
+        month_usage = (
+            df_ok[df_ok["Year"] == year_selected]
+            .groupby(["Month"], as_index=False)
+            .agg({metric: "sum"})
+        )
+        month_usage["Month"] = month_usage["Month"].astype(str).str.strip()
+        month_usage["MonthNum"] = month_usage["Month"].apply(_month_sort_key)
+        month_usage["Month"] = month_usage["MonthNum"].apply(month_label_from_num)
+
+        trend = (
+            month_usage.groupby(["MonthNum", "Month"], as_index=False)[metric]
+            .sum()
+            .sort_values("MonthNum")
+        )
+
+        season_df = df_ok[df_ok["Year"] == year_selected].copy()
+        season_df["MonthNum"] = season_df["Month"].astype(str).str.strip().apply(_month_sort_key)
+        season_df["Season"] = season_df["MonthNum"].apply(month_to_season)
+        season_df = season_df[season_df["Season"].notna()].copy()
+
+        season_trend = season_df.groupby(["Season"], as_index=False)[metric].sum()
+        s_order = season_order()
+        season_trend["Season"] = pd.Categorical(season_trend["Season"], categories=s_order, ordered=True)
+        season_trend = season_trend.sort_values("Season")
+
+        c1, c2 = st.columns([1.25, 1])
+
+        with c1:
+            fig_trend_single = px.bar(
+                trend,
+                x="Month",
+                y=metric,
+                title=f"Monthly Trend of {metric} ({year_selected})",
+            )
+            fig_trend_single.update_traces(texttemplate="%{y:,.2f}", textposition="outside")
+            fig_trend_single.update_layout(
+                height=420,
+                margin=dict(t=70, l=10, r=10, b=40),
+                template="plotly_white",
+                xaxis_tickangle=-35,
+                xaxis_title="Month",
+            )
+            fig_trend_single.update_xaxes(categoryorder="array", categoryarray=trend["Month"].tolist())
+            st.plotly_chart(fig_trend_single, use_container_width=True)
+
+        with c2:
+            fig_season_donut = px.pie(
+                season_trend,
+                names="Season",
+                values=metric,
+                hole=0.55,
+                title=f"Season Share ({year_selected})",
+                category_orders={"Season": s_order},
+            )
+            fig_season_donut.update_traces(textposition="inside", textinfo="label+percent")
+            fig_season_donut.update_layout(
+                height=420,
+                margin=dict(t=70, l=10, r=10, b=10),
+                template="plotly_white",
+                legend_title_text="Season",
+            )
+            st.plotly_chart(fig_season_donut, use_container_width=True)
+
+        return
+
+    # =========================
+    # COMPARE YEARS (MULTI-YEAR COMPARISON, NOT DIFFERENCE)
+    # =========================
+    st.markdown("## Compare Years (Multi-year comparison)")
+
+    default_years = years[-2:] if len(years) >= 2 else years
+    years_selected = st.multiselect(
+        "Select Years to Compare",
+        options=years,
+        default=default_years,
+    )
+
+    metric = st.selectbox("Metric", metric_options, index=0, key="metric_compare_mode")
+
+    compare_type = st.radio(
+        "Compare Type",
+        ["Monthly Trend (multi-year)", "Country vs Country (multi-year totals)"],
+        horizontal=True,
+    )
+
+    if not years_selected or len(years_selected) < 2:
+        st.info("Select at least 2 years to compare.")
+        st.stop()
+
+    df_cmp = df_ok[df_ok["Year"].isin(years_selected)].copy()
+
+    # ✅ Make Year discrete so Plotly shows LEGEND (not a continuous colorbar)
+    df_cmp["Year"] = df_cmp["Year"].astype(int).astype(str)
+
+    df_cmp["Month"] = df_cmp["Month"].astype(str).str.strip()
+    df_cmp["MonthNum"] = df_cmp["Month"].apply(_month_sort_key)
+    df_cmp["MonthLabel"] = df_cmp["MonthNum"].apply(month_label_from_num)
+
+    month_order = (
+        df_cmp[["MonthNum", "MonthLabel"]]
+        .drop_duplicates()
+        .sort_values("MonthNum")["MonthLabel"]
+        .tolist()
+    )
+
+    if compare_type == "Monthly Trend (multi-year)":
+        trend_cmp = (
+            df_cmp.groupby(["Year", "MonthNum", "MonthLabel"], as_index=False)[metric]
+            .sum()
+            .sort_values(["MonthNum", "Year"])
+        )
+
+        fig_trend = px.line(
+            trend_cmp,
+            x="MonthLabel",
             y=metric,
-            hover_data={"Top Operator": True, metric: ":,.4f"},
-            category_orders={"Country": top_df["Country"].tolist()},
+            color="Year",
+            markers=True,
+            category_orders={"MonthLabel": month_order},
+            title=f"Monthly Trend Comparison of {metric} (Years: {', '.join(map(str, years_selected))})",
         )
-        fig_bar.update_traces(texttemplate="%{y:,.2f}", textposition="outside")
-        fig_bar.update_layout(
-            height=500,
-            template="plotly_white",
-            margin=dict(t=30, l=10, r=10, b=40),
-            xaxis_tickangle=-35,
-            yaxis_title=metric,
-            xaxis_title="Country",
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-    with right:
-        st.markdown(f"###  World Map ({metric}) - {year_selected}")
-        map_df = year_df[year_df["ISO3"].notna()].copy()
-        map_df["Top Operator"] = map_df["Country"].map(top_operator_per_country)
-
-        fig_map = px.choropleth(
-            map_df,
-            locations="ISO3",
-            color=metric,
-            hover_data={"Country": True, metric: ":,.4f", "Top Operator": True, "ISO3": False},
-            color_continuous_scale="Blues",
-        )
-        fig_map.update_layout(
-            height=500,
-            template="plotly_white",
-            margin=dict(t=30, l=10, r=10, b=10),
-            geo=dict(showframe=False, showcoastlines=True, projection_type="natural earth"),
-            coloraxis_colorbar=dict(title=metric),
-        )
-        st.plotly_chart(fig_map, use_container_width=True)
-
-    # ==========================================================
-    # Month-wise + Season-wise
-    # ==========================================================
-    st.markdown("---")
-    st.markdown("## Month-wise and Season-wise Analysis")
-
-    month_usage = (
-        df_ok[df_ok["Year"] == year_selected]
-        .groupby(["Month"], as_index=False)
-        .agg({metric: "sum"})
-    )
-    month_usage["Month"] = month_usage["Month"].astype(str).str.strip()
-    month_usage["MonthNum"] = month_usage["Month"].apply(_month_sort_key)
-    month_usage["Month"] = month_usage["MonthNum"].apply(month_label_from_num)
-
-    trend = (
-        month_usage.groupby(["MonthNum", "Month"], as_index=False)[metric]
-        .sum()
-        .sort_values("MonthNum")
-    )
-
-    season_df = df_ok[df_ok["Year"] == year_selected].copy()
-    season_df["MonthNum"] = season_df["Month"].astype(str).str.strip().apply(_month_sort_key)
-    season_df["Season"] = season_df["MonthNum"].apply(month_to_season)
-    season_df = season_df[season_df["Season"].notna()].copy()
-
-    season_trend = season_df.groupby(["Season"], as_index=False)[metric].sum()
-    s_order = season_order()
-    season_trend["Season"] = pd.Categorical(season_trend["Season"], categories=s_order, ordered=True)
-    season_trend = season_trend.sort_values("Season")
-
-    c1, c2 = st.columns([1.25, 1])
-
-    with c1:
-        fig_trend_single = px.bar(
-            trend,
-            x="Month",
-            y=metric,
-            title=f"Monthly Trend of {metric} ({year_selected})",
-        )
-        fig_trend_single.update_traces(texttemplate="%{y:,.2f}", textposition="outside")
-        fig_trend_single.update_layout(
-            height=420,
-            margin=dict(t=70, l=10, r=10, b=40),
+        fig_trend.update_layout(
+            height=560,
             template="plotly_white",
             xaxis_tickangle=-35,
             xaxis_title="Month",
+            margin=dict(t=90, l=10, r=10, b=40),
+            legend_title_text="Year",
         )
-        fig_trend_single.update_xaxes(categoryorder="array", categoryarray=trend["Month"].tolist())
-        st.plotly_chart(fig_trend_single, use_container_width=True)
+        st.plotly_chart(fig_trend, use_container_width=True)
 
-    with c2:
-        fig_season_donut = px.pie(
-            season_trend,
-            names="Season",
+        st.markdown("### Monthly Comparison Table")
+        pivot_tbl = trend_cmp.pivot_table(
+            index=["MonthNum", "MonthLabel"],
+            columns="Year",
             values=metric,
-            hole=0.55,
-            title=f"Season Share ({year_selected})",
-            category_orders={"Season": s_order},
+            aggfunc="sum",
+            fill_value=0,
+        ).reset_index().sort_values("MonthNum")
+        pivot_tbl = pivot_tbl.drop(columns=["MonthNum"])
+        st.dataframe(df_index_from_1(pivot_tbl), use_container_width=True, height=420)
+
+    else:
+        top_n = st.slider("Top N countries", 5, 30, 15)
+
+        ctry_year = (
+            df_cmp.groupby(["Year", "Country"], as_index=False)[metric]
+            .sum()
         )
-        fig_season_donut.update_traces(textposition="inside", textinfo="label+percent")
-        fig_season_donut.update_layout(
-            height=420,
-            margin=dict(t=70, l=10, r=10, b=10),
+
+        ctry_total = (
+            ctry_year.groupby("Country", as_index=False)[metric].sum()
+            .sort_values(metric, ascending=False)
+            .head(top_n)
+        )
+        top_countries = ctry_total["Country"].tolist()
+        ctry_year_top = ctry_year[ctry_year["Country"].isin(top_countries)].copy()
+
+        fig_country = px.bar(
+            ctry_year_top,
+            x="Country",
+            y=metric,
+            color="Year",
+            barmode="group",
+            category_orders={"Country": top_countries},
+            title=f"Country Comparison of {metric} across Years (Top {top_n})",
+        )
+        fig_country.update_layout(
+            height=560,
             template="plotly_white",
-            legend_title_text="Season",
+            xaxis_tickangle=-35,
+            xaxis_title="Country",
+            yaxis_title=metric,
+            margin=dict(t=90, l=10, r=10, b=50),
+            legend_title_text="Year",
         )
-        st.plotly_chart(fig_season_donut, use_container_width=True)
+        st.plotly_chart(fig_country, use_container_width=True)
+
+        # ✅ Removed the map section in Compare Years (as you requested)
+
+        st.markdown("### Country Comparison Table")
+        pivot_country = ctry_year_top.pivot_table(
+            index="Country",
+            columns="Year",
+            values=metric,
+            aggfunc="sum",
+            fill_value=0,
+        ).reset_index()
+        st.dataframe(df_index_from_1(pivot_country), use_container_width=True, height=420)

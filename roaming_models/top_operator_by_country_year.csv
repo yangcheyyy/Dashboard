@@ -1,0 +1,622 @@
+Year,Country,Top Operator,Revenue
+2012,India,Vodafone Essar Ltd Mumbai,1876.0500000000002
+2012,Netherlands,Vodafone Netherlands,1787.05
+2012,Switzerland,"Swisscom,Switzerland",1074.25
+2012,France,Orange France,958.5
+2012,China,China Unicom,798.45
+2012,Japan,"NTT DOCOMO, Inc. Japan",658.45
+2012,Singapore,"SingTel, Singapore(GSM900/3G)",658.4
+2012,Australia,Telstra Corporation Limited,595.0
+2012,Austria,A1 Telekom Austria AG,407.7
+2012,Germany,T-Mobile Deutschland GmbH,356.8
+2012,United States,"Cingular Wireless,USACG",310.0115
+2012,United Kingdom,Vodafone- UK GBRVF,287.75
+2012,Belgium,Belgacom Mobile Belgium,227.35
+2012,Italy,TIM Italia S.p.A Italy,224.5
+2012,Hong Kong,Hong Kong CSL Ltd.,219.20000000000002
+2012,Taiwan,Chunghwa Telecom-Taiwan TWNLD,208.7
+2012,Finland,TELIASONERA FINLAND OYJ,170.0
+2012,Bangladesh,Grameen phone Bangladesh,154.85
+2012,Sweden,TeliaSonera Mobile Networks AB,151.35
+2012,Canada,Bell Mobility,114.9
+2012,Philippines,Smart Communication-Philippines,108.6
+2012,Vietnam,VIETTEL MOBILE VNMVT,96.4
+2012,Thailand,Total Access Communications Co THAWP,78.8
+2012,Portugal,Vodafone Portugal,75.5
+2012,Bulgaria,Mobiltel EAD- Bulgaria,63.0
+2012,South Korea,SK Telecom-South Korea KORSK,55.5
+2012,Malaysia,Maxis Malaysia,53.25
+2012,Indonesia,"PT Telekomunikasi Selular, Indonesia",45.95
+2012,Brazil,"VIVO SA Brazil, BRAV1",40.25
+2012,Poland,Polkomtel S.A-Poland,35.0
+2012,Denmark,TDC-Denmark,25.5
+2012,Norway,Network Norway AS,23.45
+2012,Sri Lanka,Dialog Telekom Sri Lanka LKADG,21.85
+2012,Estonia,Tele2 Sverige AB,20.25
+2012,New Zealand,Vodafone Mobile NZ Limited,6.25
+2012,Spain,"Vodafone Espana, Spain",4.0
+2012,Nepal,NTC Nepal Telecom,3.5
+2012,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,3.0
+2012,Lithuania,Omnitel,0.5
+2012,Afghanistan,Roshan Afghanistan(AFGTD),0.0
+2012,Egypt,Etisalat Misr-Egypt,0.0
+2012,Israel,Cellcom Israel Ltd.,0.0
+2012,Romania,Orange Romania (ROMMR),0.0
+2012,South Africa,Vodacom South Africa,0.0
+2013,Netherlands,Vodafone Netherlands,3152.9500000000003
+2013,United Kingdom,Vodafone- UK GBRVF,2801.1
+2013,India,Vodafone Essar Ltd Mumbai,1922.1499999999999
+2013,United States,"Cingular Wireless,USACG",1411.0008
+2013,Singapore,"SingTel, Singapore(GSM900/3G)",1279.9
+2013,Germany,T-Mobile Deutschland GmbH,892.95
+2013,Switzerland,"Swisscom,Switzerland",861.05
+2013,Australia,Telstra Corporation Limited,755.05
+2013,Japan,"NTT DOCOMO, Inc. Japan",699.4
+2013,Belgium,Belgacom Mobile Belgium,577.5
+2013,France,Orange France,570.35
+2013,Malaysia,Maxis Malaysia,491.4
+2013,China,China Unicom,433.65
+2013,Spain,"Vodafone Espana, Spain",408.6
+2013,Italy,TIM Italia S.p.A Italy,387.0
+2013,Hong Kong,Hong Kong CSL Ltd.,378.6
+2013,Austria,A1 Telekom Austria AG,366.5
+2013,Qatar,Q-Tel Qatar,364.85
+2013,Philippines,Smart Communication-Philippines,251.95000000000002
+2013,Denmark,TDC-Denmark,227.55
+2013,Mexico,Telcel Mexico(MEXTL),221.0
+2013,Taiwan,Taiwan Mobile,188.6
+2013,South Korea,SK Telecom-South Korea KORSK,168.4
+2013,Sweden,TeliaSonera Mobile Networks AB,139.5
+2013,Brazil,"VIVO SA Brazil, BRAV1",101.25
+2013,Nepal,NCell Nepal NPLM2,95.25
+2013,Norway,Netcom-Norway,95.15
+2013,Vietnam,Vietnam Mobile Mobifone(VNMMO),88.5
+2013,Finland,TELIASONERA FINLAND OYJ,81.2
+2013,Poland,PTK Centertel-Poland,78.75
+2013,Estonia,Tele2 Sverige AB,76.0
+2013,Indonesia,"PT Telekomunikasi Selular, Indonesia",66.4
+2013,Canada,Fido Solutions Inc. Canada,54.1
+2013,Thailand,Total Access Communications Co THAWP,45.8
+2013,Bangladesh,Grameen phone Bangladesh,34.95
+2013,Sri Lanka,Dialog Telekom Sri Lanka LKADG,34.15
+2013,South Africa,Vodacom South Africa,34.05
+2013,New Zealand,Vodafone Mobile NZ Limited,33.5
+2013,Romania,Orange Romania (ROMMR),23.25
+2013,Israel,Cellcom Israel Ltd.,19.0
+2013,Afghanistan,Roshan Afghanistan(AFGTD),14.45
+2013,Lithuania,Omnitel,8.5
+2013,Portugal,Vodafone Portugal,6.0
+2013,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,2.0
+2013,Bulgaria,Mobiltel EAD- Bulgaria,0.0
+2013,Egypt,Etisalat Misr-Egypt,0.0
+2013,Ghana,Vodafone Panafon,0.0
+2013,Hungary,Vodafone Hungary,0.0
+2013,Ireland,Vodafone Ireland,0.0
+2013,Kuwait,ZAIN (Mobile Telecommunications Company),0.0
+2013,Lebanon,TOUCH Lebanon,0.0
+2013,Malta,Vodafone Malta(MLTTL),0.0
+2013,Pakistan,Mobilink Pakistan(PAKMK),0.0
+2013,Puerto Rico,Claro-Puerto Rico(PRICL),0.0
+2013,Slovakia,Orange Slovakia(SVKGT),0.0
+2013,Turkey,Turkcell Turkey(TURTC),0.0
+2013,Unknown,Remain Operator,0.0
+2014,Netherlands,Vodafone Netherlands,3336.6499999999996
+2014,Germany,T-Mobile Deutschland GmbH,2617.4999999999995
+2014,Israel,Cellcom Israel Ltd.,1956.3
+2014,India,Vodafone Essar Ltd Mumbai,1786.95
+2014,United States,"Cingular Wireless,USACG",1180.731
+2014,Switzerland,"Swisscom,Switzerland",1165.25
+2014,Australia,Telstra Corporation Limited,1136.241
+2014,Singapore,"SingTel, Singapore(GSM900/3G)",992.458
+2014,Italy,TIM Italia S.p.A Italy,848.3
+2014,Japan,KDDI Corporation Japan,802.35
+2014,Turkey,Turkcell Turkey(TURTC),730.8
+2014,Spain,"Vodafone Espana, Spain",700.35
+2014,Malaysia,Maxis Mobile Services Sdn Bhd,691.65
+2014,United Kingdom,Vodafone- UK GBRVF,589.95
+2014,China,China Unicom,465.5
+2014,France,Orange France,463.25
+2014,Mexico,Radiomovil Dipsa SA de C.V - Telcel,232.2
+2014,Bangladesh,Grameen phone Bangladesh,185.25
+2014,Austria,A1 Telekom Austria AG,171.15
+2014,Nepal,Ncell Private Limited,170.8
+2014,Philippines,Smart Communication-Philippines,168.10000000000002
+2014,Hong Kong,Hong Kong CSL Ltd.,153.85
+2014,South Africa,Vodacom South Africa,141.55
+2014,Thailand,Dtac Trinet Co Ltd,140.1
+2014,Denmark,TDC-Denmark,131.95
+2014,Norway,Telenor Norge AS,123.75
+2014,Brazil,"VIVO SA Brazil, BRAV1",105.25
+2014,Canada,"Rogers Wireless Partnership, Canada",83.89300000000001
+2014,Indonesia,"PT Telekomunikasi Selular, Indonesia",66.35
+2014,Sweden,TeliaSonera Mobile Networks AB,48.35
+2014,South Korea,SK Telecom-South Korea KORSK,38.45
+2014,Belgium,Belgacom Mobile Belgium,31.15
+2014,Taiwan,Chunghwa Telecom-Taiwan TWNLD,24.0
+2014,Oman,Oman Telecomunications Company,16.85
+2014,Estonia,Tele2 Sverige AB,6.25
+2014,Vietnam,Vietnam Mobile Mobifone(VNMMO),6.25
+2014,Qatar,Q-Tel Qatar,5.4
+2014,Poland,PTK Centertel-Poland,4.55
+2014,Hungary,Vodafone Hungary,4.0
+2014,New Zealand,Telecom New Zealand Limited,4.0
+2014,Pakistan,Pakistan Mobile Communications Limited,2.0
+2014,Finland,Elisa Corporation Finland FINRL,1.0
+2014,Slovakia,Orange Slovakia(SVKGT),0.5
+2014,Afghanistan,Roshan Afghanistan(AFGTD),0.0
+2014,Albania,Vodafone Albania Sh.A,0.0
+2014,Bulgaria,Mobiltel EAD- Bulgaria,0.0
+2014,Czech Republic,Vodafone Czech Republic a.s.,0.0
+2014,Egypt,Etisalat Misr-Egypt,0.0
+2014,Ghana,Vodafone Panafon,0.0
+2014,Ireland,Vodafone Ireland,0.0
+2014,Kuwait,ZAIN (Mobile Telecommunications Company),0.0
+2014,Lebanon,TOUCH Lebanon,0.0
+2014,Lithuania,Omnitel,0.0
+2014,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,0.0
+2014,Malta,Vodafone Malta(AAZVF),0.0
+2014,Panama,Telefonica Panama,0.0
+2014,Portugal,Vodafone Portugal,0.0
+2014,Puerto Rico,Claro-Puerto Rico(PRICL),0.0
+2014,Romania,Orange Romania (ROMMR),0.0
+2014,Sri Lanka,Dialog Telekom Sri Lanka LKADG,0.0
+2014,Unknown,Remain Operator,0.0
+2015,Singapore,"StarHub, Singapore",4920.900000000001
+2015,Netherlands,Vodafone Netherlands,4520.0
+2015,Switzerland,"Swisscom,Switzerland",3804.5
+2015,Germany,T-Mobile Deutschland GmbH,3047.6000000000004
+2015,China,China Unicom,2598.9
+2015,United Kingdom,Vodafone- UK GBRVF,2192.8
+2015,Japan,KDDI Corporation Japan,1990.2000000000003
+2015,India,Vodafone Essar Ltd Mumbai,1926.282
+2015,France,Orange France,1325.9
+2015,Philippines,Smart Communication-Philippines,1161.023
+2015,Belgium,Belgacom Mobile Belgium,1071.25
+2015,Spain,"Vodafone Espana, Spain",973.0
+2015,Italy,TIM Italia S.p.A Italy,635.25
+2015,Thailand,Dtac Trinet Co Ltd,576.15
+2015,United States,"Cingular Wireless,USACG",573.623
+2015,Malaysia,Maxis Mobile Services Sdn Bhd,468.6
+2015,Turkey,Turkcell Turkey(TURTC),459.9
+2015,Kuwait,ZAIN (Mobile Telecommunications Company),445.9
+2015,Hong Kong,Hong Kong CSL Ltd.,408.518
+2015,South Korea,SK Telecom-South Korea KORSK,329.09999999999997
+2015,Norway,TeliaSonera Norge AS,251.75
+2015,Austria,A1 Telekom Austria AG,248.85
+2015,Australia,Telstra Corporation Limited,208.714
+2015,Taiwan,Taiwan Mobile,137.9
+2015,Vietnam,Vietnam Mobile Mobifone(VNMMO),102.7
+2015,Finland,TELIASONERA FINLAND OYJ,94.15
+2015,Mexico,Radiomovil Dipsa SA de C.V - Telcel,91.10000000000001
+2015,Nepal,Ncell Private Limited,74.5
+2015,Bangladesh,Grameen phone Bangladesh,73.9
+2015,Indonesia,"PT Telekomunikasi Selular, Indonesia",47.75
+2015,Denmark,TDC-Denmark,46.4
+2015,Russia,Mobile TeleSystem - MTS Russia,38.0
+2015,Canada,Bell Mobility,35.6
+2015,Poland,PTK Centertel-Poland,22.0
+2015,Romania,Orange Romania (ROMMR),16.5
+2015,Sweden,TeliaSonera Mobile Networks AB,9.0
+2015,Estonia,Tele2 Sverige AB,5.5
+2015,Lithuania,Omnitel,5.5
+2015,New Zealand,Telecom New Zealand Limited,5.5
+2015,Hungary,Vodafone Hungary,4.5
+2015,Czech Republic,Vodafone Czech Republic a.s.,3.5
+2015,Slovakia,Orange Slovakia(SVKGT),2.75
+2015,Brazil,"VIVO SA Brazil, BRAV1",2.25
+2015,Portugal,Vodafone Portugal,2.25
+2015,Lebanon,TOUCH Lebanon,0.75
+2015,Qatar,Vodafone Qatar Q.S.C,0.3
+2015,Afghanistan,Roshan Afghanistan(AFGTD),0.0
+2015,Albania,Vodafone Albania Sh.A,0.0
+2015,Bulgaria,Mobiltel EAD- Bulgaria,0.0
+2015,Egypt,Etisalat Misr-Egypt,0.0
+2015,Ghana,Vodafone Ghana,0.0
+2015,Ireland,Vodafone Ireland,0.0
+2015,Israel,Cellcom Israel Ltd.,0.0
+2015,Luxembourg,Tango SA,0.0
+2015,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,0.0
+2015,Malta,Vodafone Malta(AAZVF),0.0
+2015,Myanmar,Ooredoo-Myanmar,0.0
+2015,Oman,Oman Telecomunications Company,0.0
+2015,Pakistan,Pakistan Mobile Communications Limited,0.0
+2015,Panama,Telefonica Panama,0.0
+2015,Puerto Rico,Claro-Puerto Rico(PRICL),0.0
+2015,South Africa,Vodacom South Africa,0.0
+2015,Sri Lanka,Dialog Telekom Sri Lanka LKADG,0.0
+2016,India,Vodafone Essar Ltd Mumbai,119068.01000000001
+2016,France,Orange France,96655.4
+2016,United Kingdom,Vodafone- UK GBRVF,64906.5
+2016,United States,Verzion Wireless,56519.164
+2016,Singapore,"StarHub, Singapore",47012.6
+2016,Switzerland,"Swisscom,Switzerland",45696.079000000005
+2016,Italy,Vodafone Omnitel N.V-Italy,39127.8
+2016,Japan,Soft Bank Mobile Corp,34525.2
+2016,Netherlands,Vodafone Netherlands,30569.0
+2016,Malaysia,Maxis Mobile Services Sdn Bhd,30057.45
+2016,Germany,T-Mobile Deutschland GmbH,26305.034000000003
+2016,Czech Republic,Vodafone Czech Republic a.s.,16902.5
+2016,Israel,Cellcom Israel Ltd.,16607.35
+2016,Mexico,Radiomovil Dipsa SA de C.V - Telcel,11385.349999999999
+2016,Kuwait,ZAIN (Mobile Telecommunications Company),10979.349999999999
+2016,Sweden,TeliaSonera Mobile Networks AB,9781.6
+2016,Australia,Telstra Corporation Limited,8899.987000000001
+2016,South Korea,KT Corporation,8665.35
+2016,Ireland,Vodafone Ireland,7841.050000000001
+2016,Philippines,Smart Communication-Philippines,7789.322
+2016,Vietnam,Vietnam Mobile Mobifone(VNMMO),7010.799999999999
+2016,Austria,A1 Telekom Austria AG,6757.900000000001
+2016,Nepal,Ncell Private Limited,5962.099999999999
+2016,Turkey,Turkcell Turkey(TURTC),5802.374
+2016,Belgium,Belgacom Mobile Belgium,5088.450000000001
+2016,Indonesia,"PT Telekomunikasi Selular, Indonesia",4535.35
+2016,Canada,Bell Mobility,4360.058999999999
+2016,Denmark,TDC-Denmark,4267.0
+2016,Hong Kong,Hong Kong CSL Ltd.,3623.7569999999996
+2016,Taiwan,Chunghwa Telecom-Taiwan TWNLD,3322.85
+2016,Russia,Mobile TeleSystem - MTS Russia,2812.7999999999997
+2016,Thailand,Real Future Company Limited,2712.7320000000004
+2016,New Zealand,Telecom New Zealand Limited,2523.55
+2016,Finland,Elisa Corporation Finland FINRL,2395.1000000000004
+2016,China,China Unicom,1831.9310000000003
+2016,Sri Lanka,Dialog Telekom Sri Lanka LKADG,1403.96
+2016,Qatar,Q-Tel Qatar,1394.6
+2016,Poland,PTK Centertel-Poland,1311.75
+2016,Saudi Arabia,STC- Saudi Arabia,1292.826
+2016,Slovakia,Orange Slovakia(SVKGT),882.5
+2016,Spain,"Vodafone Espana, Spain",715.95
+2016,Brazil,"VIVO SA Brazil, BRAV1",641.75
+2016,Estonia,Tele2 Sverige AB,562.7869999999999
+2016,Norway,Telenor Norge AS,492.37199999999996
+2016,Bulgaria,Mobiltel EAD- Bulgaria,392.65
+2016,Bangladesh,Grameen phone Bangladesh,387.825
+2016,Luxembourg,Tango SA,233.70000000000005
+2016,Portugal,Vodafone Portugal,182.25
+2016,Romania,Vodafone Romania(ROMMF),155.8
+2016,Ghana,Vodafone Panafon,149.75
+2016,Myanmar,Telenor-Myanmar,82.983
+2016,Panama,Telefonica Panama,70.0
+2016,Oman,Oman Telecomunications Company,65.0
+2016,South Africa,Vodacom South Africa,62.1
+2016,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,45.0
+2016,Hungary,Vodafone Hungary,42.0
+2016,Pakistan,Pakistan Mobile Communications Limited,33.75
+2016,Egypt,Etisalat Misr-Egypt,17.299999999999997
+2016,Lebanon,TOUCH Lebanon,2.25
+2016,Afghanistan,Roshan Afghanistan(AFGTD),0.0
+2016,Albania,Vodafone Albania Sh.A,0.0
+2016,Bermuda,Wireless Maritime Services,0.0
+2016,Lithuania,Omnitel,0.0
+2016,Malta,Vodafone Malta(AAZVF),0.0
+2016,Puerto Rico,Claro-Puerto Rico(PRICL),0.0
+2017,Singapore,"SingTel, Singapore(GSM900/3G)",83777.707
+2017,India,"Bharti Airtel, India (DELHI)",61384.229
+2017,United States,"Cingular Wireless,USACG",52169.17
+2017,France,Orange France,35271.935
+2017,Netherlands,KPN B.V.  The Netherlands,31199.239
+2017,Germany,T-Mobile Deutschland GmbH,30874.329
+2017,Malaysia,Celcom Axiata Berhad,30479.085
+2017,South Korea,SK Telecom-South Korea KORSK,27677.068
+2017,Switzerland,"Swisscom,Switzerland",26653.019999999997
+2017,United Kingdom,Telefonica UK Limited,24448.495
+2017,China,China Mobile,21162.129999999997
+2017,Philippines,Smart Communication-Philippines,20098.472
+2017,Turkey,Turkcell Turkey(TURTC),17126.666
+2017,Japan,"NTT DOCOMO, Inc. Japan",15975.768
+2017,Mexico,Radiomovil Dipsa SA de C.V - Telcel,15623.417
+2017,Canada,"Rogers Wireless Partnership, Canada",13855.423
+2017,Australia,Telstra Corporation Limited,13403.581999999999
+2017,Israel,Cellcom Israel Ltd.,9582.695000000002
+2017,Russia,Mobile TeleSystem - MTS Russia,7629.534
+2017,Italy,Vodafone Omnitel N.V-Italy,7442.49
+2017,Belgium,Belgacom Mobile Belgium,6771.985000000001
+2017,Hong Kong,Hutchison 3G HK Limited(HKGH3),5428.244000000001
+2017,Vietnam,Vietnam Mobile Mobifone(VNMMO),4435.982
+2017,Oman,Oman Telecomunications Company,4346.937
+2017,Sri Lanka,Dialog Telekom Sri Lanka LKADG,3069.236
+2017,Spain,"Vodafone Espana, Spain",3024.692
+2017,New Zealand,Telecom New Zealand Limited,2569.608
+2017,Czech Republic,Vodafone Czech Republic a.s.,2529.26
+2017,Sweden,TeliaSonera Mobile Networks AB,2471.486
+2017,Taiwan,Chunghwa Telecom-Taiwan TWNLD,1847.4660000000001
+2017,Thailand,Real Future Company Limited,1838.195
+2017,Austria,A1 Telekom Austria AG,1837.9129999999998
+2017,Norway,TeliaSonera Norge AS,1720.208
+2017,Finland,Elisa Corporation Finland FINRL,1649.025
+2017,Indonesia,"PT Telekomunikasi Selular, Indonesia",1578.056
+2017,Nepal,Ncell Private Limited,1530.4219999999998
+2017,Poland,PTK Centertel-Poland,1389.076
+2017,Malta,Vodafone Malta(MLTTL),1343.602
+2017,Denmark,TDC-Denmark,1320.082
+2017,Kuwait,ZAIN (Mobile Telecommunications Company),1310.166
+2017,South Africa,Vodacom South Africa,1126.7079999999999
+2017,Brazil,"VIVO SA Brazil, BRAV1",996.11
+2017,Bangladesh,Grameen phone Bangladesh,900.467
+2017,Pakistan,Pakistan Mobile Communications Limited,818.5479999999999
+2017,Qatar,Vodafone Qatar Q.S.C,736.224
+2017,Estonia,Tele2 Sverige AB,572.965
+2017,Saudi Arabia,STC- Saudi Arabia,237.99200000000002
+2017,Panama,Telefonica Panama,208.469
+2017,Ireland,Vodafone Ireland,159.6
+2017,Bulgaria,Mobiltel EAD- Bulgaria,122.22
+2017,Romania,Orange Romania (ROMMR),119.06
+2017,Slovakia,Orange Slovakia(SVKGT),79.91
+2017,Hungary,Vodafone Hungary,79.71600000000001
+2017,Lithuania,Omnitel,72.13
+2017,Portugal,Vodafone Portugal,68.02300000000001
+2017,Luxembourg,Tango SA,58.743
+2017,Myanmar,Telenor-Myanmar,24.859
+2017,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,19.0
+2017,Ghana,Vodafone Panafon,17.42
+2017,Lebanon,TOUCH Lebanon,4.75
+2017,Egypt,Etisalat Misr-Egypt,1.5
+2017,Afghanistan,Roshan Afghanistan(AFGTD),0.0
+2017,Albania,Vodafone Albania Sh.A,0.0
+2017,Puerto Rico,Claro-Puerto Rico(PRICL),0.0
+2018,Japan,"NTT DOCOMO, Inc. Japan",113296.294
+2018,United States,"Cingular Wireless,USACG",85545.085
+2018,Germany,T-Mobile Deutschland GmbH,55766.450000000004
+2018,India,Vodafone Essar Ltd Mumbai,46752.833
+2018,China,China Mobile,44199.118
+2018,Malaysia,Celcom Axiata Berhad,42943.171
+2018,Switzerland,"Swisscom,Switzerland",25857.772
+2018,France,Orange France,23971.876
+2018,United Kingdom,Telefonica UK Limited,19131.376999999997
+2018,Philippines,Smart Communication-Philippines,18219.695
+2018,Australia,Telstra Corporation Limited,17570.066
+2018,South Korea,SK Telecom-South Korea KORSK,11063.533
+2018,Russia,Mobile TeleSystem - MTS Russia,10652.614
+2018,Netherlands,KPN B.V.  The Netherlands,9863.794
+2018,Canada,"Rogers Wireless Partnership, Canada",9452.991999999998
+2018,Vietnam,Vietnam Mobile Mobifone(VNMMO),7312.0
+2018,Belgium,Belgacom Mobile Belgium,6489.670000000001
+2018,Singapore,"SingTel, Singapore(GSM900/3G)",6438.3279999999995
+2018,Poland,PTK Centertel-Poland,5596.4940000000015
+2018,Czech Republic,T-Mobile Czech Republic,5457.483
+2018,Hong Kong,Hong Kong CSL Ltd.,4944.9220000000005
+2018,Spain,Telefonica SP,4593.135
+2018,Italy,TIM Italia S.p.A Italy,3628.451
+2018,New Zealand,Telecom New Zealand Limited,2900.901
+2018,Oman,Oman Telecomunications Company,2482.625
+2018,Mexico,Radiomovil Dipsa SA de C.V - Telcel,2390.749
+2018,Sweden,TeliaSonera Mobile Networks AB,2295.605
+2018,Bangladesh,Grameen phone Bangladesh,1981.702
+2018,Finland,Elisa Corporation Finland FINRL,1865.597
+2018,Thailand,Real Future Company Limited,1803.49
+2018,Austria,A1 Telekom Austria AG,1775.9499999999998
+2018,Turkey,Turkcell Turkey(TURTC),1638.8529999999996
+2018,Israel,Cellcom Israel Ltd.,1305.7469999999998
+2018,Denmark,TDC-Denmark,1102.706
+2018,Taiwan,Chunghwa Telecom-Taiwan TWNLD,1065.006
+2018,Nepal,Ncell Private Limited,880.0
+2018,Sri Lanka,Dialog Telekom Sri Lanka LKADG,798.035
+2018,Norway,TeliaSonera Norge AS,756.848
+2018,Indonesia,"PT Telekomunikasi Selular, Indonesia",730.457
+2018,Estonia,Tele2 Sverige AB,607.3639999999999
+2018,Saudi Arabia,STC- Saudi Arabia,602.376
+2018,Kuwait,ZAIN (Mobile Telecommunications Company),470.389
+2018,Slovakia,Orange Slovakia(SVKGT),418.0
+2018,Ireland,Vodafone Ireland,417.406
+2018,Qatar,Q-Tel Qatar,337.908
+2018,Lithuania,Omnitel,298.0
+2018,Brazil,"VIVO SA Brazil, BRAV1",291.5
+2018,Romania,Orange Romania (ROMMR),245.5
+2018,Lebanon,TOUCH Lebanon,179.775
+2018,Bulgaria,Mobiltel EAD- Bulgaria,145.73600000000002
+2018,Macau,CTM Macau,121.58500000000001
+2018,Luxembourg,Tango SA,86.883
+2018,South Africa,Vodacom South Africa,70.57100000000001
+2018,Myanmar,Telenor-Myanmar,57.282
+2018,Malta,Vodafone Malta(MLTTL),51.376
+2018,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,47.0
+2018,Portugal,Vodafone Portugal,40.857
+2018,Pakistan,Pakistan Mobile Communications Limited,36.047
+2018,Hungary,Vodafone Hungary,15.371999999999998
+2018,Ghana,Vodafone Panafon,8.367
+2018,Puerto Rico,Claro-Puerto Rico(PRICL),1.5
+2018,Afghanistan,Roshan Afghanistan(AFGTD),0.0
+2018,Albania,Vodafone Albania Sh.A,0.0
+2018,Egypt,Etisalat Misr-Egypt,0.0
+2018,Panama,Telefonica Panama,0.0
+2019,Japan,"NTT DOCOMO, Inc. Japan",341159.797
+2019,China,China Mobile,145084.024
+2019,United States,"Cingular Wireless,USACG",81236.831
+2019,India,"Bharti Airtel, India (Karnataka)",62268.19300000001
+2019,Germany,T-Mobile Deutschland GmbH,56212.87
+2019,Hong Kong,Hong Kong CSL Ltd.,35902.092000000004
+2019,South Korea,SK Telecom-South Korea KORSK,23327.982
+2019,Switzerland,"Swisscom,Switzerland",20999.911
+2019,Malaysia,Celcom Axiata Berhad,19845.456
+2019,Australia,Telstra Corporation Limited,19584.057
+2019,United Kingdom,Telefonica UK Limited,18424.804
+2019,Canada,"Rogers Wireless Partnership, Canada",16558.519
+2019,Italy,TIM Italia S.p.A Italy,16305.658
+2019,Thailand,Advanced Wireless Network Company Limited,12505.559
+2019,Singapore,"SingTel, Singapore(GSM900/3G)",10943.518
+2019,France,Orange France,8956.795
+2019,Philippines,Smart Communication-Philippines,7439.352000000001
+2019,Vietnam,Vietnam Mobile Mobifone(VNMMO),7142.620999999999
+2019,Russia,Mobile TeleSystem - MTS Russia,6816.070000000001
+2019,Israel,Cellcom Israel Ltd.,6390.788999999999
+2019,Belgium,Belgacom Mobile Belgium,5867.396000000001
+2019,Netherlands,KPN B.V.  The Netherlands,5283.765
+2019,Norway,TeliaSonera Norge AS,5104.0689999999995
+2019,Spain,Telefonica SP,4163.365
+2019,Turkey,Turkcell Turkey(TURTC),4073.669
+2019,Austria,A1 Telekom Austria AG,3758.74
+2019,New Zealand,Telecom New Zealand Limited,2199.4709999999995
+2019,Luxembourg,Tango SA,1614.1019999999999
+2019,Mexico,Radiomovil Dipsa SA de C.V - Telcel,1566.096
+2019,Finland,Elisa Corporation Finland FINRL,1503.865
+2019,Myanmar,Myanma Posts and Telecommunications,1498.883
+2019,Sri Lanka,Dialog Telekom Sri Lanka LKADG,1361.825
+2019,Sweden,TeliaSonera Mobile Networks AB,1321.7730000000001
+2019,Nepal,Ncell Private Limited,1148.795
+2019,Brazil,"VIVO SA Brazil,BRAV3",1126.0
+2019,Qatar,Q-Tel Qatar,933.467
+2019,Bangladesh,Grameen phone Bangladesh,831.243
+2019,Denmark,TDC-Denmark,806.4299999999998
+2019,Oman,Oman Telecomunications Company,765.293
+2019,Poland,PTK Centertel-Poland,761.04
+2019,Argentina,Telefónica Móviles Argentina S.A.,642.148
+2019,Czech Republic,T-Mobile Czech Republic,624.627
+2019,Estonia,Tele2 Sverige AB,523.555
+2019,Indonesia,"PT Telekomunikasi Selular, Indonesia",497.51400000000007
+2019,Romania,Orange Romania (ROMMR),220.0
+2019,Taiwan,Taiwan Mobile,211.37900000000002
+2019,Saudi Arabia,STC- Saudi Arabia,198.851
+2019,Ireland,Vodafone Ireland,198.528
+2019,Portugal,Vodafone Portugal,124.70499999999998
+2019,Kuwait,ZAIN (Mobile Telecommunications Company),107.502
+2019,Slovakia,Orange Slovakia(SVKGT),104.5
+2019,Croatia,A1 HR,78.171
+2019,Macau,CTM Macau,70.536
+2019,Malta,Vodafone Malta(MLTTL),47.163
+2019,Pakistan,Pakistan Mobile Communications Limited,45.696000000000005
+2019,South Africa,Vodacom South Africa,39.632999999999996
+2019,Hungary,Vodafone Hungary,33.394000000000005
+2019,Bulgaria,Mobiltel EAD- Bulgaria,29.246000000000002
+2019,Ghana,Vodafone Panafon,27.273999999999997
+2019,Lebanon,TOUCH Lebanon,21.742
+2019,Lithuania,Omnitel,21.0
+2019,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,7.5
+2019,Afghanistan,Roshan Afghanistan(AFGTD),0.0
+2019,Albania,Vodafone Albania Sh.A,0.0
+2019,Egypt,Etisalat Misr-Egypt,0.0
+2019,Panama,Telefonica Panama,0.0
+2019,Puerto Rico,Claro-Puerto Rico(PRICL),0.0
+2020,Japan,"NTT DOCOMO, Inc. Japan",14963.010999999999
+2020,United States,"Cingular Wireless,USACG",7789.668000000001
+2020,India,Vodafone Essar Ltd Mumbai,5141.133000000001
+2020,China,China Mobile,4984.601000000001
+2020,Germany,T-Mobile Deutschland GmbH,3407.3420000000006
+2020,Hong Kong,Hong Kong CSL Ltd.,2871.0080000000003
+2020,Singapore,"SingTel, Singapore(GSM900/3G)",2869.7389999999996
+2020,United Kingdom,Telefonica UK Limited,1791.005
+2020,Australia,Telstra Corporation Limited,1732.164
+2020,South Korea,SK Telecom-South Korea KORSK,1712.272
+2020,Switzerland,"Swisscom,Switzerland",1708.759
+2020,France,Orange France,1153.308
+2020,Vietnam,Vietnam Mobile Mobifone(VNMMO),1017.7260000000001
+2020,Sweden,TeliaSonera Mobile Networks AB,706.133
+2020,Malaysia,Maxis Mobile Services Sdn Bhd,667.8229999999999
+2020,Argentina,Telefónica Móviles Argentina S.A.,624.962
+2020,Netherlands,Vodafone Netherlands,580.914
+2020,Canada,"Rogers Wireless Partnership, Canada",568.643
+2020,Philippines,Smart Communication-Philippines,394.685
+2020,Qatar,Q-Tel Qatar,330.896
+2020,Thailand,Advanced Wireless Network Company Limited,319.926
+2020,Russia,Mobile TeleSystem - MTS Russia,314.948
+2020,Ireland,Vodafone Ireland,277.46400000000006
+2020,Indonesia,"PT Telekomunikasi Selular, Indonesia",271.22900000000004
+2020,Austria,A1 Telekom Austria AG,220.664
+2020,Belgium,Belgacom Mobile Belgium,186.41199999999998
+2020,Italy,Vodafone Omnitel N.V-Italy,147.87599999999998
+2020,Mexico,Radiomovil Dipsa SA de C.V - Telcel,139.98600000000002
+2020,Spain,"Vodafone Espana, Spain",121.04100000000001
+2020,Myanmar,Myanma Posts and Telecommunications,115.45400000000001
+2020,Sri Lanka,Dialog Telekom Sri Lanka LKADG,113.46800000000002
+2020,Croatia,A1 HR,108.05300000000001
+2020,Israel,Cellcom Israel Ltd.,102.312
+2020,Turkey,Turkcell Turkey(TURTC),93.923
+2020,Kuwait,ZAIN (Mobile Telecommunications Company),86.326
+2020,Norway,TeliaSonera Norge AS,69.633
+2020,Brazil,"VIVO SA Brazil,BRAV3",68.5
+2020,Nepal,Ncell Private Limited,59.0
+2020,Oman,Oman Telecomunications Company,57.618
+2020,South Africa,Vodacom South Africa,53.435
+2020,Bangladesh,Grameen phone Bangladesh,50.87100000000001
+2020,Estonia,Tele2 Sverige AB,46.05499999999999
+2020,Poland,PTK Centertel-Poland,30.5
+2020,Denmark,TDC-Denmark,27.433
+2020,Czech Republic,T-Mobile Czech Republic,23.625
+2020,Pakistan,Pakistan Mobile Communications Limited,16.5
+2020,Portugal,Vodafone Portugal,15.964000000000002
+2020,Finland,Elisa Corporation Finland FINRL,15.0
+2020,Romania,Vodafone Romania(ROMMF),12.581
+2020,New Zealand,Telecom New Zealand Limited,12.344999999999999
+2020,Slovakia,Orange Slovakia(SVKGT),9.0
+2020,Bulgaria,Mobiltel EAD- Bulgaria,5.599
+2020,Saudi Arabia,STC- Saudi Arabia,3.575999999999999
+2020,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,3.5
+2020,Hungary,Vodafone Hungary,2.607
+2020,Ghana,Vodafone Ghana,2.54
+2020,Malta,Vodafone Malta(MLTTL),2.147
+2020,Taiwan,Taiwan Mobile,1.1
+2020,Luxembourg,Tango SA,0.194
+2020,Afghanistan,Roshan Afghanistan(AFGTD),0.0
+2020,Albania,Vodafone Albania Sh.A,0.0
+2020,Egypt,Etisalat Misr-Egypt,0.0
+2020,Lebanon,TOUCH Lebanon,0.0
+2020,Lithuania,Omnitel,0.0
+2020,Macau,CTM Macau,0.0
+2020,Panama,Telefonica Panama,0.0
+2020,Puerto Rico,Claro-Puerto Rico(PRICL),0.0
+2021,Japan,"NTT DOCOMO, Inc. Japan",2279.688
+2021,United States,"Cingular Wireless,USACG",1481.603
+2021,India,"Bharti Airtel, India (Punjab)",884.674
+2021,Australia,Vodafone Hutchison Australia,532.2349999999999
+2021,Switzerland,"Swisscom,Switzerland",432.20099999999996
+2021,South Korea,KT Corporation,354.6700000000001
+2021,Germany,T-Mobile Deutschland GmbH,208.50799999999998
+2021,Austria,A1 Telekom Austria AG,174.964
+2021,Spain,Telefonica SP,138.07499999999996
+2021,Indonesia,"PT Telekomunikasi Selular, Indonesia",129.288
+2021,Qatar,Q-Tel Qatar,126.87699999999998
+2021,Estonia,Tele2 Sverige AB,104.32
+2021,Sweden,Telenor Sweden(SWEEP),93.713
+2021,Kuwait,ZAIN (Mobile Telecommunications Company),66.089
+2021,China,China Mobile,60.78399999999999
+2021,Netherlands,Vodafone Netherlands,54.361
+2021,France,Orange France,52.899
+2021,Finland,TELIASONERA FINLAND OYJ,43.0
+2021,Singapore,"SingTel, Singapore(GSM900/3G)",40.223
+2021,Philippines,Smart Communication-Philippines,39.254
+2021,Thailand,Advanced Wireless Network Company Limited,37.479
+2021,Sri Lanka,Dialog Telekom Sri Lanka LKADG,24.633
+2021,Canada,Fido Solutions Inc. Canada,18.478
+2021,Malaysia,Maxis Mobile Services Sdn Bhd,14.710999999999993
+2021,Egypt,Etisalat Misr-Egypt,13.0
+2021,Bangladesh,Grameen phone Bangladesh,12.26
+2021,Pakistan,Pakistan Mobile Communications Limited,11.797
+2021,Czech Republic,T-Mobile Czech Republic,9.04
+2021,Hungary,Vodafone Hungary,8.51
+2021,Vietnam,Vietnam Mobile Mobifone(VNMMO),8.0
+2021,Ghana,Vodafone Ghana,7.686
+2021,Poland,PTK Centertel-Poland,6.5
+2021,Belgium,Belgacom Mobile Belgium,6.349000000000002
+2021,Malta,Vodafone Malta(AAZVF),4.519000000000001
+2021,Myanmar,Telenor-Myanmar,4.478
+2021,United Kingdom,Vodafone- UK GBRVF,4.144
+2021,Italy,Vodafone Omnitel N.V-Italy,3.7159999999999997
+2021,Nepal,Ncell Private Limited,3.5
+2021,Mexico,Radiomovil Dipsa SA de C.V - Telcel,2.5
+2021,South Africa,Vodacom South Africa,2.459
+2021,New Zealand,Vodafone Mobile NZ Limited,2.332
+2021,Oman,Oman Telecomunications Company,2.05
+2021,Turkey,Vodafone Turkey(TURTS),1.311
+2021,Ireland,Vodafone Ireland,0.37
+2021,Denmark,Telenor Denmark(DNKDM),0.32
+2021,Saudi Arabia,STC- Saudi Arabia,0.2
+2021,Norway,Mobile Norway AS,0.039
+2021,Afghanistan,Roshan Afghanistan(AFGTD),0.0
+2021,Albania,Vodafone Albania Sh.A,0.0
+2021,Argentina,Telefónica Móviles Argentina S.A.,0.0
+2021,Brazil,"VIVO MG Brazil,BRATC",0.0
+2021,Bulgaria,Mobiltel EAD- Bulgaria,0.0
+2021,Croatia,A1 HR,0.0
+2021,Hong Kong,Hong Kong CSL Ltd.,0.0
+2021,Israel,Cellcom Israel Ltd.,0.0
+2021,Latvia,Tele 2 Latvia LVABC,0.0
+2021,Lebanon,TOUCH Lebanon,0.0
+2021,Lithuania,Omnitel,0.0
+2021,Luxembourg,Tango SA,0.0
+2021,Macau,CTM Macau,0.0
+2021,Maldives,Dhivehi Raajjeyge Gulhun Private Limited,0.0
+2021,Panama,Telefonica Panama,0.0
+2021,Portugal,Vodafone Portugal,0.0
+2021,Puerto Rico,Claro-Puerto Rico(PRICL),0.0
+2021,Romania,Orange Romania (ROMMR),0.0
+2021,Russia,Mobile TeleSystem - MTS Russia,0.0
+2021,Slovakia,Orange Slovakia(SVKGT),0.0
+2021,Taiwan,Chunghwa Telecom-Taiwan TWNLD,0.0
